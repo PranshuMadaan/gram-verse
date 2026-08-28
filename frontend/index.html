@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>GramVerse AI — Prototype</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<style>
+  :root { --bg:#0f1720; --panel:#16202b; --accent:#4fb477; --accent2:#e0a94f; --text:#e6edf3; --muted:#8b98a5; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: -apple-system, Segoe UI, Roboto, sans-serif; background:var(--bg); color:var(--text); }
+  header { padding:14px 20px; background:var(--panel); border-bottom:1px solid #223040; display:flex; justify-content:space-between; align-items:center; }
+  header h1 { font-size:18px; margin:0; }
+  header .sub { color:var(--muted); font-size:12px; }
+  .layout { display:grid; grid-template-columns: 380px 1fr; height: calc(100vh - 56px); }
+  .panel { background:var(--panel); border-right:1px solid #223040; overflow-y:auto; padding:16px; }
+  .main { display:flex; flex-direction:column; }
+  #map { flex:1; min-height: 300px; }
+  #three-wrap { height: 260px; border-top:1px solid #223040; position:relative; background:#0a1119;}
+  #three-wrap .label { position:absolute; top:6px; left:10px; font-size:11px; color:var(--muted); z-index:10; }
+  section { margin-bottom: 18px; }
+  section h2 { font-size:13px; text-transform:uppercase; letter-spacing:0.05em; color:var(--muted); margin:0 0 8px; }
+  .metric-row { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #1e2a36; font-size:13px; }
+  .metric-row .val { font-weight:600; }
+  .score-big { font-size:34px; font-weight:700; color:var(--accent); }
+  .cand { display:flex; align-items:center; gap:8px; padding:8px; border:1px solid #223040; border-radius:6px; margin-bottom:6px; font-size:12.5px; cursor:pointer; }
+  .cand:hover { border-color: var(--accent); }
+  .cand.selected { background:#1c3324; border-color: var(--accent); }
+  .cand .cost { margin-left:auto; color:var(--accent2); white-space:nowrap; }
+  input[type=text], input[type=number] { width:100%; padding:8px; border-radius:6px; border:1px solid #2a3947; background:#0f1720; color:var(--text); font-size:13px; margin-bottom:8px; }
+  button { background:var(--accent); color:#08130c; border:none; padding:9px 14px; border-radius:6px; font-weight:600; cursor:pointer; font-size:13px; margin-right:6px; }
+  button.secondary { background:#2a3947; color:var(--text); }
+  button.opt { background:var(--accent2); color:#241a05; }
+  button:disabled { opacity:0.4; cursor:not-allowed; }
+  #budgetBar { height:8px; background:#1e2a36; border-radius:4px; overflow:hidden; margin:6px 0 4px; }
+  #budgetFill { height:100%; background:var(--accent); width:0%; transition: width .2s; }
+  #budgetWarn { color:#e05a5a; font-size:12px; display:none; }
+  table { width:100%; border-collapse: collapse; font-size:12px; }
+  th, td { text-align:left; padding:6px 4px; border-bottom:1px solid #1e2a36; }
+  th { color:var(--muted); font-weight:500; }
+  #status { font-size:12px; color:var(--muted); margin-top:8px; min-height: 16px; }
+  .pill { display:inline-block; padding:2px 8px; border-radius:10px; font-size:11px; background:#223040; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>GramVerse AI <span style="color:var(--muted); font-weight:400;">— Backend Prototype Demo</span></h1>
+    <div class="sub">Digital twin · accessibility graph · budget-constrained planning · explainable optimizer</div>
+  </div>
+  <div class="sub">API: <span id="apiBase">http://localhost:8000</span></div>
+</header>
+
+<div class="layout">
+  <div class="panel">
+
+    <section>
+      <h2>Baseline Conditions</h2>
+      <div id="baselineScore" class="score-big">–</div>
+      <div class="metric-row"><span>School accessibility</span><span class="val" id="m-school">–</span></div>
+      <div class="metric-row"><span>Water access</span><span class="val" id="m-water">–</span></div>
+      <div class="metric-row"><span>Drainage coverage</span><span class="val" id="m-drainage">–</span></div>
+      <div class="metric-row"><span>Avg. time to school</span><span class="val" id="m-time">–</span></div>
+    </section>
+
+    <section>
+      <h2>Planning Sandbox</h2>
+      <input type="text" id="scenarioName" placeholder="Scenario name (e.g. Plan A)" value="Plan A">
+      <label style="font-size:12px; color:var(--muted);">Budget (lakh ₹)</label>
+      <input type="number" id="budgetInput" value="50">
+      <div id="candidateList"></div>
+      <div id="budgetBar"><div id="budgetFill"></div></div>
+      <div id="budgetLabel" style="font-size:12px; color:var(--muted);">0 / 50 lakh selected</div>
+      <div id="budgetWarn">Over budget — remove an intervention</div>
+      <div style="margin-top:10px;">
+        <button id="runBtn">Run Simulation</button>
+        <button id="optBtn" class="opt">AI Recommend</button>
+      </div>
+      <div id="status"></div>
+    </section>
+
+    <section>
+      <h2>Scenario Comparison</h2>
+      <table id="compareTable">
+        <thead><tr><th>Plan</th><th>Cost</th><th>Score</th><th>School</th><th>Water</th><th>Drainage</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <button class="secondary" id="resetBtn" style="margin-top:8px;">Reset scenarios</button>
+    </section>
+
+  </div>
+
+  <div class="main">
+    <div id="map"></div>
+    <div id="three-wrap">
+      <div class="label">3D Digital Twin (simplified) — buildings extruded, green = school-accessible</div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const API = document.getElementById('apiBase').textContent;
+let village = null;
+let catalog = [];
+let selected = []; // {type, target}
+let leafletMap, threeScene, threeRenderer, threeCamera;
+
+async function api(path, opts) {
+  const res = await fetch(API + path, opts);
+  if (!res.ok) { const err = await res.json().catch(()=>({detail:res.statusText})); throw new Error(err.detail || 'Request failed'); }
+  return res.json();
+}
+
+function fmtPct(v) { return v === null || v === undefined ? '–' : v.toFixed(1) + '%'; }
+
+async function loadVillage() {
+  village = await api('/api/village');
+  catalog = await api('/api/interventions/catalog');
+  initMap();
+  initCandidates();
+  initThree();
+  const base = await api('/api/metrics/baseline');
+  renderBaseline(base);
+  render3D(base);
+  await refreshScenarios();
+}
+
+function initMap() {
+  leafletMap = L.map('map').setView([30.3695, 76.3775], 16);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(leafletMap);
+
+  // roads
+  Object.entries(village.nodes).forEach(([id, n]) => {});
+  village.edges.forEach(e => {
+    const a = village.nodes[e.a], b = village.nodes[e.b];
+    L.polyline([[a.lat, a.lon],[b.lat, b.lon]], { color: e.condition === 'good' ? '#4fb477' : '#e0a94f', weight: 4 })
+      .bindTooltip(`${e.id} (${e.condition}, ${e.time_min} min)`).addTo(leafletMap);
+  });
+  // proposed (not-yet-built) road, dashed
+  const pe = village.proposed_edge, pa = village.nodes[pe.a], pb = village.nodes[pe.b];
+  L.polyline([[pa.lat,pa.lon],[pb.lat,pb.lon]], {color:'#666', weight:2, dashArray:'6,6'}).bindTooltip('Proposed road E6 (not built)').addTo(leafletMap);
+
+  // facilities
+  Object.values(village.facilities).forEach(f => {
+    const n = village.nodes[f.node];
+    L.circleMarker([n.lat, n.lon], {radius:8, color:'#4fb4e0', fillOpacity:0.9}).bindTooltip(f.label).addTo(leafletMap);
+  });
+  // water points
+  village.water_points.forEach(nid => {
+    const n = village.nodes[nid];
+    L.circleMarker([n.lat, n.lon], {radius:6, color:'#3ad', fillColor:'#3ad', fillOpacity:0.6}).bindTooltip('Water point').addTo(leafletMap);
+  });
+  // buildings
+  village.buildings.forEach(b => {
+    L.circleMarker([b.lat, b.lon], {radius:5, color:'#ccc', fillOpacity:0.8})
+      .bindTooltip(`${b.id} (${b.zone})`).addTo(leafletMap);
+  });
+}
+
+function initCandidates() {
+  const list = document.getElementById('candidateList');
+  list.innerHTML = '';
+  catalog.forEach((c, idx) => {
+    const div = document.createElement('div');
+    div.className = 'cand';
+    div.dataset.idx = idx;
+    div.innerHTML = `<span>${c.label}</span><span class="cost">${c.cost_lakh}L</span>`;
+    div.onclick = () => toggleCandidate(idx, div);
+    list.appendChild(div);
+  });
+}
+
+function toggleCandidate(idx, div) {
+  const c = catalog[idx];
+  const key = c.type + ':' + c.target;
+  const pos = selected.findIndex(s => (s.type + ':' + s.target) === key);
+  if (pos >= 0) { selected.splice(pos, 1); div.classList.remove('selected'); }
+  else { selected.push({type: c.type, target: c.target}); div.classList.add('selected'); }
+  updateBudgetBar();
+}
+
+function updateBudgetBar() {
+  const budget = parseFloat(document.getElementById('budgetInput').value) || 0;
+  const spent = selected.reduce((sum, s) => {
+    const c = catalog.find(c => c.type === s.type && c.target === s.target);
+    return sum + (c ? c.cost_lakh : 0);
+  }, 0);
+  const pct = Math.min(100, budget ? (spent/budget*100) : 0);
+  document.getElementById('budgetFill').style.width = pct + '%';
+  document.getElementById('budgetFill').style.background = spent > budget ? '#e05a5a' : 'var(--accent)';
+  document.getElementById('budgetLabel').textContent = `${spent} / ${budget} lakh selected`;
+  document.getElementById('budgetWarn').style.display = spent > budget ? 'block' : 'none';
+  document.getElementById('runBtn').disabled = spent > budget || selected.length === 0;
+}
+document.getElementById('budgetInput').addEventListener('input', updateBudgetBar);
+
+function renderBaseline(m) {
+  document.getElementById('baselineScore').textContent = m.composite_score;
+  document.getElementById('m-school').textContent = fmtPct(m.school_accessibility_pct);
+  document.getElementById('m-water').textContent = fmtPct(m.water_access_pct);
+  document.getElementById('m-drainage').textContent = fmtPct(m.drainage_coverage_pct);
+  document.getElementById('m-time').textContent = (m.avg_time_to_school_min ?? '–') + ' min';
+}
+
+async function refreshScenarios() {
+  const scenarios = await api('/api/scenarios');
+  const tbody = document.querySelector('#compareTable tbody');
+  tbody.innerHTML = '';
+  scenarios.forEach(s => {
+    const r = s.result;
+    const tr = document.createElement('tr');
+    if (!r.valid) {
+      tr.innerHTML = `<td>${s.name}</td><td colspan="5" style="color:#e05a5a;">${r.budget.message}</td>`;
+    } else {
+      tr.innerHTML = `<td>${s.name}</td><td>${r.budget.total_cost_lakh}L</td>
+        <td><b>${r.metrics.composite_score}</b></td>
+        <td>${fmtPct(r.metrics.school_accessibility_pct)}</td>
+        <td>${fmtPct(r.metrics.water_access_pct)}</td>
+        <td>${fmtPct(r.metrics.drainage_coverage_pct)}</td>`;
+    }
+    tbody.appendChild(tr);
+  });
+}
+
+document.getElementById('runBtn').onclick = async () => {
+  const name = document.getElementById('scenarioName').value || 'Untitled plan';
+  const budget = parseFloat(document.getElementById('budgetInput').value) || 0;
+  const status = document.getElementById('status');
+  status.textContent = 'Running simulation...';
+  try {
+    const scenario = await api('/api/scenarios', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ name, budget_lakh: budget, interventions: selected })
+    });
+    status.textContent = scenario.result.valid
+      ? `Saved. New composite score: ${scenario.result.metrics.composite_score} (Δ ${scenario.result.delta.composite_score >= 0 ? '+' : ''}${scenario.result.delta.composite_score})`
+      : `Rejected: ${scenario.result.budget.message}`;
+    render3D(scenario.result.valid ? scenario.result.metrics : null);
+    await refreshScenarios();
+  } catch (e) { status.textContent = 'Error: ' + e.message; }
+};
+
+document.getElementById('optBtn').onclick = async () => {
+  const budget = parseFloat(document.getElementById('budgetInput').value) || 0;
+  const status = document.getElementById('status');
+  status.textContent = 'Running optimizer...';
+  try {
+    const result = await api('/api/optimize', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ budget_lakh: budget })
+    });
+    status.textContent = `AI plan: ${result.chosen_interventions.map(c=>c.label).join(', ')} — score ${result.simulation.metrics.composite_score}`;
+    render3D(result.simulation.metrics);
+    await refreshScenarios();
+  } catch (e) { status.textContent = 'Error: ' + e.message; }
+};
+
+document.getElementById('resetBtn').onclick = async () => {
+  await api('/api/reset', { method:'POST' });
+  await refreshScenarios();
+};
+
+// ---- minimal three.js 3D twin: buildings as boxes, color = school accessible ----
+function initThree() {
+  const wrap = document.getElementById('three-wrap');
+  threeScene = new THREE.Scene();
+  threeScene.background = new THREE.Color(0x0a1119);
+  threeCamera = new THREE.PerspectiveCamera(50, wrap.clientWidth/wrap.clientHeight, 0.1, 1000);
+  threeCamera.position.set(0, 14, 18);
+  threeCamera.lookAt(0,0,0);
+  threeRenderer = new THREE.WebGLRenderer({antialias:true});
+  threeRenderer.setSize(wrap.clientWidth, wrap.clientHeight);
+  wrap.appendChild(threeRenderer.domElement);
+  const light = new THREE.DirectionalLight(0xffffff, 1); light.position.set(5,10,5); threeScene.add(light);
+  threeScene.add(new THREE.AmbientLight(0x556677));
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(30,30), new THREE.MeshStandardMaterial({color:0x1a2530}));
+  ground.rotation.x = -Math.PI/2; threeScene.add(ground);
+  animateThree();
+}
+function animateThree() {
+  requestAnimationFrame(animateThree);
+  threeScene.rotation.y += 0.002;
+  threeRenderer.render(threeScene, threeCamera);
+}
+function render3D(metrics) {
+  // clear old buildings
+  threeScene.children.filter(o => o.userData.isBuilding).forEach(o => threeScene.remove(o));
+  const accessible = new Set();
+  if (metrics && metrics.buildings) metrics.buildings.forEach(b => { if (b.school_accessible) accessible.add(b.id); });
+
+  const lat0 = 30.3695, lon0 = 76.3775; // center
+  village.buildings.forEach(b => {
+    const x = (b.lon - lon0) * 90000 / 20;
+    const z = (b.lat - lat0) * 111000 / 20;
+    const h = 0.8 + Math.random()*0.6;
+    const geo = new THREE.BoxGeometry(0.6, h, 0.6);
+    const color = accessible.has(b.id) ? 0x4fb477 : 0xaa5a5a;
+    const mat = new THREE.MeshStandardMaterial({color});
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.set(x, h/2, z);
+    mesh.userData.isBuilding = true;
+    threeScene.add(mesh);
+  });
+}
+
+loadVillage().catch(e => {
+  document.getElementById('status').textContent = 'Could not reach backend at ' + API + ' — is uvicorn running? (' + e.message + ')';
+});
+</script>
+</body>
+</html>
