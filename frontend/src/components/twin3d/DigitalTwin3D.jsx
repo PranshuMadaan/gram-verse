@@ -65,7 +65,7 @@ const TIME_OF_DAY = {
     hemiGround: 0x304020,
     hemiIntensity: 0.65,
     fogColor: 0xd89c74,
-    fogDensity: 0.012,
+    fogDensity: 0.005,
     exposure: 1.05,
     nightLights: false,
     particlesColor: 0xffe8b0,
@@ -80,7 +80,7 @@ const TIME_OF_DAY = {
     hemiGround: 0x486432,
     hemiIntensity: 0.85,
     fogColor: 0xc4dcfa,
-    fogDensity: 0.009,
+    fogDensity: 0.004,
     exposure: 1.15,
     nightLights: false,
     particlesColor: 0xffffff,
@@ -95,7 +95,7 @@ const TIME_OF_DAY = {
     hemiGround: 0x332014,
     hemiIntensity: 0.6,
     fogColor: 0xdc7c4c,
-    fogDensity: 0.012,
+    fogDensity: 0.005,
     exposure: 1.05,
     nightLights: true,
     particlesColor: 0xffd080,
@@ -110,7 +110,7 @@ const TIME_OF_DAY = {
     hemiGround: 0x0a1018,
     hemiIntensity: 0.35,
     fogColor: 0x091424,
-    fogDensity: 0.014,
+    fogDensity: 0.006,
     exposure: 0.8,
     nightLights: true,
     particlesColor: 0x44ffaa, // Bioluminescent fireflies
@@ -277,7 +277,7 @@ export function DigitalTwin3D({
     const heightPx = container.clientHeight || 520;
     const camera = new THREE.PerspectiveCamera(52, width / heightPx, 0.1, 1200);
     // Bird's eye view showing the whole village
-    camera.position.set(0, 85, 90);
+    camera.position.set(0, 55, 60);
     camera.lookAt(0, 0, 0);
     cameraRef.current = camera;
 
@@ -299,7 +299,7 @@ export function DigitalTwin3D({
     controls.enableDamping = true;
     controls.dampingFactor = 0.06;
     controls.minDistance = 8;
-    controls.maxDistance = 280;
+    controls.maxDistance = 320;
     controls.maxPolarAngle = Math.PI / 2.04;
     controls.target.set(0, 2, 0);
     controls.autoRotate = autoRotate;
@@ -355,8 +355,8 @@ export function DigitalTwin3D({
       (x - z) * 0.008
     );
 
-    // 4. Terrain — undulating MeshLambertMaterial plane (expansive 160m x 160m)
-    const terrainGeo = new THREE.PlaneGeometry(160, 160, 96, 96);
+    // 4. Terrain — undulating MeshLambertMaterial plane (expansive 600m x 600m)
+    const terrainGeo = new THREE.PlaneGeometry(600, 600, 128, 128);
     const tPos = terrainGeo.attributes.position;
     for (let i = 0; i < tPos.count; i++) {
       const px = tPos.getX(i);
