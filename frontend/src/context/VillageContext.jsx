@@ -35,6 +35,7 @@ export function VillageProvider({ children }) {
   const [isAddFeatureOpen, setIsAddFeatureOpen] = useState(false);
   const [isThingsToFixOpen, setIsThingsToFixOpen] = useState(false);
   const [isPlanningDrawerOpen, setIsPlanningDrawerOpen] = useState(false);
+  const [isSolarModalOpen, setIsSolarModalOpen] = useState(false);
 
   // Map Coordinate Picker Mode
   const [pickLocationMode, setPickLocationMode] = useState(null); // 'problem' | 'feature' | null
@@ -319,6 +320,8 @@ export function VillageProvider({ children }) {
     setIsThingsToFixOpen,
     isPlanningDrawerOpen,
     setIsPlanningDrawerOpen,
+    isSolarModalOpen,
+    setIsSolarModalOpen,
     pickLocationMode,
     setPickLocationMode,
     selectedMapPoint,

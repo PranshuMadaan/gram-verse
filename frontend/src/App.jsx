@@ -7,6 +7,7 @@ import { AddFeatureModal } from './components/community/AddFeatureModal';
 import { ReportProblemModal } from './components/community/ReportProblemModal';
 import { ThingsToFixDrawer } from './components/community/ThingsToFixDrawer';
 import { PlanningDrawer } from './components/planning/PlanningDrawer';
+import { SolarSDGModal } from './components/solar/SolarSDGModal';
 import { LoginModal } from './components/auth/LoginModal';
 import { UserProfileDrawer } from './components/auth/UserProfileDrawer';
 import { Toast } from './components/common/Toast';
@@ -29,6 +30,8 @@ function AppContent() {
     setIsThingsToFixOpen,
     isPlanningDrawerOpen,
     setIsPlanningDrawerOpen,
+    isSolarModalOpen,
+    setIsSolarModalOpen,
   } = useVillage();
 
   if (loading) {
@@ -106,6 +109,11 @@ function AppContent() {
       <PlanningDrawer
         isOpen={isPlanningDrawerOpen}
         onClose={() => setIsPlanningDrawerOpen(false)}
+      />
+
+      <SolarSDGModal
+        isOpen={isSolarModalOpen}
+        onClose={() => setIsSolarModalOpen(false)}
       />
 
       {/* Global Toast Notifications */}

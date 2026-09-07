@@ -12,6 +12,7 @@ import {
   User,
   ShieldCheck,
   Landmark,
+  Sun,
 } from 'lucide-react';
 
 export function AppHeader() {
@@ -27,6 +28,7 @@ export function AppHeader() {
     isOverBudget,
     backendOnline,
     appMode,
+    setIsSolarModalOpen,
   } = useVillage();
 
   return (
@@ -87,8 +89,18 @@ export function AppHeader() {
           </div>
         )}
 
-        {/* Right: User Authentication Profile & Backend Status */}
-        <div className="flex items-center space-x-3 flex-shrink-0">
+        {/* Right: Solar Case Study, User Authentication Profile & Backend Status */}
+        <div className="flex items-center space-x-2.5 flex-shrink-0">
+          {/* SDG 7 Solar Microgrid Action Button */}
+          <button
+            onClick={() => setIsSolarModalOpen(true)}
+            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500/20 via-orange-500/20 to-cyan-500/20 hover:from-amber-500/30 hover:to-cyan-500/30 border border-amber-500/40 text-amber-300 hover:text-amber-200 text-xs font-bold transition-all shadow-glow flex-shrink-0 animate-pulse"
+            title="Open SDG 7 Solar Transition Case Study & Financial Model"
+          >
+            <Sun className="w-3.5 h-3.5 text-amber-400" />
+            <span>☀️ Solar Case Study</span>
+          </button>
+
           {/* User Profile / Login Button */}
           {isAuthenticated && user ? (
             <button

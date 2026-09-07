@@ -88,6 +88,7 @@ export function MapViewport() {
         <DigitalTwin3D
           village={village}
           baselineMetrics={baselineMetrics}
+          selectedInterventions={selectedInterventions}
           elevationProfile={elevationProfile}
           height="100%"
         />
