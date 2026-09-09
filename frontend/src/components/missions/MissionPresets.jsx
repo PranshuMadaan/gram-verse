@@ -1,5 +1,6 @@
 import React from 'react';
 import { useVillage } from '../../context/VillageContext';
+import { MISSIONS } from '../../services/missions';
 import {
   Target,
   GraduationCap,
@@ -7,67 +8,20 @@ import {
   Droplets,
   Zap,
   ArrowRight,
-  ShieldCheck,
   Award,
 } from 'lucide-react';
 
-export function MissionPresets() {
-  const { applyMission } = useVillage();
+const ICONS = {
+  school: GraduationCap,
+  flood: Waves,
+  water: Droplets,
+  holistic: Zap,
+};
 
-  const missions = [
-    {
-      id: 'mission-school',
-      title: 'Mission 1: School Access Sprint',
-      name: 'Plan: School Access Sprint',
-      icon: GraduationCap,
-      category: 'Education & Mobility',
-      budget: 35,
-      targetMetric: 'School Accessibility ≥ 70%',
-      color: 'border-cyan-500/30 text-cyan-400 bg-cyan-500/10',
-      description:
-        'Far Hamlet (Zone B) students currently face walking times up to 23 minutes. Modernize bottleneck road links (E3, E5) or build corridor E6 within a strict ₹35L budget.',
-      difficulty: 'Moderate',
-    },
-    {
-      id: 'mission-flood',
-      title: 'Mission 2: Monsoon Flood Defense',
-      name: 'Plan: Monsoon Flood Defense',
-      icon: Waves,
-      category: 'Drainage & Climate Resilience',
-      budget: 30,
-      targetMetric: 'Drainage Coverage 100%',
-      color: 'border-amber-500/30 text-amber-400 bg-amber-500/10',
-      description:
-        'Zero stormwater drainage exists currently, leaving both Zone A and Zone B vulnerable to monsoon waterlogging. Fund community drainage projects within ₹30L.',
-      difficulty: 'Direct',
-    },
-    {
-      id: 'mission-water',
-      title: 'Mission 3: Clean Water Lifeline',
-      name: 'Plan: Clean Water Lifeline',
-      icon: Droplets,
-      category: 'Public Health',
-      budget: 30,
-      targetMetric: 'Water Access ≥ 70%',
-      color: 'border-blue-500/30 text-blue-400 bg-blue-500/10',
-      description:
-        '80% of households are outside the 150m walking buffer from existing water sources. Place new decentralized water points at key junctions within ₹30L.',
-      difficulty: 'Tactical',
-    },
-    {
-      id: 'mission-holistic',
-      title: 'Mission 4: Comprehensive Modernization',
-      name: 'Plan: Comprehensive Modernization',
-      icon: Zap,
-      category: 'Multi-Criteria Holistic',
-      budget: 65,
-      targetMetric: 'Composite Score ≥ 70 pts',
-      color: 'border-emerald-500/30 text-emerald-400 bg-emerald-500/10',
-      description:
-        'Balance road connectivity, flood prevention, and potable water distribution across both village zones to achieve an outstanding composite development score.',
-      difficulty: 'Master Planner',
-    },
-  ];
+export function MissionPresets() {
+  const { applyMission, activeMission } = useVillage();
+
+  const missions = MISSIONS;
 
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto overflow-y-auto">
@@ -95,12 +49,17 @@ export function MissionPresets() {
       {/* Mission Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {missions.map((m) => {
-          const Icon = m.icon;
+          const Icon = ICONS[m.iconKey] || Target;
+          const isActive = activeMission?.id === m.id;
 
           return (
             <div
               key={m.id}
-              className="bg-[#0e1624]/90 backdrop-blur-md rounded-2xl p-6 border border-slate-800 hover:border-cyan-500/40 transition-all shadow-command space-y-4 flex flex-col justify-between"
+              className={`bg-[#0e1624]/90 backdrop-blur-md rounded-2xl p-6 border transition-all shadow-command space-y-4 flex flex-col justify-between ${
+                isActive
+                  ? 'border-cyan-400 ring-1 ring-cyan-400/40'
+                  : 'border-slate-800 hover:border-cyan-500/40'
+              }`}
             >
               <div className="space-y-3">
                 <div className="flex items-start justify-between">
@@ -139,9 +98,13 @@ export function MissionPresets() {
 
               <button
                 onClick={() => applyMission(m)}
-                className="w-full py-2.5 px-4 rounded-xl bg-[#131d2e] hover:bg-cyan-500 hover:text-slate-950 text-cyan-300 border border-cyan-500/30 font-bold text-xs transition-all flex items-center justify-center space-x-2"
+                className={`w-full py-2.5 px-4 rounded-xl font-bold text-xs transition-all flex items-center justify-center space-x-2 ${
+                  isActive
+                    ? 'bg-cyan-500 text-slate-950'
+                    : 'bg-[#131d2e] hover:bg-cyan-500 hover:text-slate-950 text-cyan-300 border border-cyan-500/30'
+                }`}
               >
-                <span>Accept Mission & Open Sandbox</span>
+                <span>{isActive ? 'Active — Reopen Sandbox' : 'Accept Mission & Open Sandbox'}</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
             </div>

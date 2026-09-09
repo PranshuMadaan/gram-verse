@@ -11,6 +11,8 @@ import { SolarSDGModal } from './components/solar/SolarSDGModal';
 import { LoginModal } from './components/auth/LoginModal';
 import { UserProfileDrawer } from './components/auth/UserProfileDrawer';
 import { Toast } from './components/common/Toast';
+import { RoleSelector } from './components/onboarding/RoleSelector';
+import { VillagerHome } from './components/community/VillagerHome';
 import { WifiOff, RefreshCw } from 'lucide-react';
 
 function AppContent() {
@@ -22,6 +24,8 @@ function AppContent() {
     loadVillageData,
     activeVillage,
     toast,
+    appMode,
+    hasChosenRole,
     isAddFeatureOpen,
     setIsAddFeatureOpen,
     isReportProblemOpen,
@@ -69,6 +73,19 @@ function AppContent() {
     );
   }
 
+  // First-ever visit: ask whether this is a villager or a planning official
+  // before showing either experience.
+  if (!hasChosenRole) {
+    return <RoleSelector />;
+  }
+
+  // Villager Mode: a deliberately separate, much simpler screen — no map
+  // chrome, no technical jargon, no budget/simulation tools.
+  if (appMode === 'simple') {
+    return <VillagerHome />;
+  }
+
+  // Planning Official Mode: the full digital twin + planning suite.
   return (
     <div className="h-screen w-screen flex flex-col overflow-hidden bg-[#080c14] text-slate-100 font-sans">
       <AppHeader />

@@ -3,12 +3,28 @@ import { api } from '../api/client';
 import { VILLAGE_REGISTRY, DATA_TIERS } from '../services/villageRegistry';
 import { villageDataService } from '../services/villageDataService';
 import { INITIAL_COMMUNITY_PROBLEMS } from '../services/problemService';
+import { MISSIONS } from '../services/missions';
 
 const VillageContext = createContext(null);
 
 export function VillageProvider({ children }) {
-  // App Experience Mode: 'simple' (Community view) vs 'planning' (Panchayat planners)
-  const [appMode, setAppMode] = useState('simple');
+  // App Experience Mode: 'simple' (Villager Mode) vs 'planning' (Planning Official Mode)
+  const [appMode, setAppMode] = useState(() => localStorage.getItem('gramverse_role') || 'simple');
+  const [hasChosenRole, setHasChosenRole] = useState(() => Boolean(localStorage.getItem('gramverse_role')));
+
+  const chooseRole = (mode) => {
+    setAppMode(mode);
+    setHasChosenRole(true);
+    localStorage.setItem('gramverse_role', mode);
+  };
+
+  // Keep localStorage in sync if the person switches modes later from
+  // within the app (e.g. the "Switch Mode" links), not just on first choice.
+  useEffect(() => {
+    if (hasChosenRole) {
+      localStorage.setItem('gramverse_role', appMode);
+    }
+  }, [appMode, hasChosenRole]);
 
   // View Dimension: '2d' (Satellite map) vs '3d' (Digital Twin)
   const [viewMode, setViewMode] = useState('2d');
@@ -53,6 +69,14 @@ export function VillageProvider({ children }) {
 
   // Selected queue
   const [selectedInterventions, setSelectedInterventions] = useState([]);
+
+  // Gamified Missions state
+  const [activeMission, setActiveMission] = useState(null);
+  // Set by applyMission() to tell PlanningDrawer which tab to jump to next render
+  const [requestedPlanningTab, setRequestedPlanningTab] = useState(null);
+
+  // Panchayat Planning Tasks (budget-linked task list)
+  const [tasks, setTasks] = useState([]);
 
   // Results and AI state
   const [latestSimulation, setLatestSimulation] = useState(null);
@@ -204,6 +228,38 @@ export function VillageProvider({ children }) {
     setSelectedInterventions([]);
   };
 
+  // Accept a gamified mission preset: pre-fills the plan builder with the
+  // mission's budget & objective, clears any in-progress plan, and jumps
+  // the Planning Suite straight to the Builder tab.
+  const applyMission = (mission) => {
+    setActiveMission(mission);
+    setActivePlanName(mission.name);
+    setBudgetLakh(mission.budget);
+    setPlanningObjective(mission.objective || 'holistic');
+    setSelectedInterventions([]);
+    setLatestSimulation(null);
+    setOptimizerResult(null);
+    setAppMode('planning');
+    setIsPlanningDrawerOpen(true);
+    setRequestedPlanningTab('builder');
+    showToast(`Mission accepted: ${mission.title}`, 'success');
+  };
+
+  const clearMission = () => {
+    setActiveMission(null);
+  };
+
+  // Panchayat Planning Tasks
+  const addTask = (task) => {
+    setTasks((prev) => [task, ...prev]);
+    showToast(`Task created: "${task.title}"`, 'success');
+  };
+
+  const deleteTask = (taskId) => {
+    setTasks((prev) => prev.filter((t) => t.id !== taskId));
+    showToast('Task removed', 'info');
+  };
+
   // Run Simulation API call
   const runSimulation = async (customName = null) => {
     if (activeVillage.id !== 'PB-PAT-001' && !activeVillage.isPilot) {
@@ -292,6 +348,8 @@ export function VillageProvider({ children }) {
   const value = {
     appMode,
     setAppMode,
+    hasChosenRole,
+    chooseRole,
     viewMode,
     setViewMode,
     activeVillage,
@@ -347,6 +405,15 @@ export function VillageProvider({ children }) {
     toggleIntervention,
     isInterventionSelected,
     clearPlan,
+    missions: MISSIONS,
+    activeMission,
+    applyMission,
+    clearMission,
+    requestedPlanningTab,
+    setRequestedPlanningTab,
+    tasks,
+    addTask,
+    deleteTask,
     totalAllocated,
     remainingBudget,
     isOverBudget,

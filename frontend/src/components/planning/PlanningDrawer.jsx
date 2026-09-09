@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useVillage } from '../../context/VillageContext';
 import { ScoreGauge } from '../common/ScoreGauge';
 import { MetricCard } from '../common/MetricCard';
+import { MissionPresets } from '../missions/MissionPresets';
+import { TaskPlanner } from '../tasks/TaskPlanner';
 import {
   X,
   Hammer,
@@ -19,6 +21,8 @@ import {
   Clock,
   ArrowRight,
   TrendingUp,
+  Target,
+  Trophy,
 } from 'lucide-react';
 
 export function PlanningDrawer({ isOpen, onClose }) {
@@ -45,9 +49,21 @@ export function PlanningDrawer({ isOpen, onClose }) {
     isSimulating,
     isOptimizing,
     baselineMetrics,
+    activeMission,
+    requestedPlanningTab,
+    setRequestedPlanningTab,
   } = useVillage();
 
-  const [activeTab, setActiveTab] = useState('builder'); // 'builder' | 'simulation' | 'compare' | 'optimizer'
+  const [activeTab, setActiveTab] = useState('missions'); // 'missions' | 'builder' | 'simulation' | 'compare' | 'optimizer'
+
+  // A mission (or anything else) can request a tab jump via context —
+  // consume it once, then clear so it doesn't fire again on re-render.
+  useEffect(() => {
+    if (requestedPlanningTab) {
+      setActiveTab(requestedPlanningTab);
+      setRequestedPlanningTab(null);
+    }
+  }, [requestedPlanningTab, setRequestedPlanningTab]);
 
   if (!isOpen) return null;
 
@@ -94,6 +110,18 @@ export function PlanningDrawer({ isOpen, onClose }) {
 
       {/* Planning Navigation Tabs */}
       <div className="p-2 border-b border-slate-800/80 bg-[#0c121e]/80 flex items-center space-x-1 text-xs">
+        <button
+          onClick={() => setActiveTab('missions')}
+          className={`flex-1 py-1.5 rounded-xl font-semibold transition-all flex items-center justify-center space-x-1.5 ${
+            activeTab === 'missions'
+              ? 'bg-purple-500 text-white font-bold shadow-sm'
+              : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          <Target className="w-3.5 h-3.5" />
+          <span>Missions</span>
+        </button>
+
         <button
           onClick={() => setActiveTab('builder')}
           className={`flex-1 py-1.5 rounded-xl font-semibold transition-all flex items-center justify-center space-x-1.5 ${
@@ -145,9 +173,28 @@ export function PlanningDrawer({ isOpen, onClose }) {
 
       {/* Drawer Body Area */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {/* Tab 0: Gamified Mission Presets */}
+        {activeTab === 'missions' && (
+          <div className="-m-4">
+            <MissionPresets />
+          </div>
+        )}
+
         {/* Tab 1: Plan Builder & Budget Engine */}
         {activeTab === 'builder' && (
           <div className="space-y-4">
+            {activeMission && (
+              <div className="p-3 rounded-2xl bg-purple-500/10 border border-purple-500/30 flex items-center space-x-2.5">
+                <Target className="w-4 h-4 text-purple-300 flex-shrink-0" />
+                <div className="text-xs">
+                  <span className="font-bold text-purple-200">{activeMission.title}</span>
+                  <span className="text-purple-300/80"> — target: {activeMission.targetMetric}</span>
+                </div>
+              </div>
+            )}
+
+            <TaskPlanner />
+
             {/* Scenario Name & Objective */}
             <div className="p-3.5 rounded-2xl bg-[#0e1624] border border-slate-800 space-y-3">
               <div>
@@ -328,6 +375,30 @@ export function PlanningDrawer({ isOpen, onClose }) {
           <div className="space-y-4">
             {simResult ? (
               <>
+                {activeMission && (
+                  activeMission.checkSuccess(simResult.metrics) ? (
+                    <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-400/40 flex items-center space-x-3">
+                      <Trophy className="w-6 h-6 text-amber-400 flex-shrink-0" />
+                      <div className="text-xs">
+                        <div className="font-bold text-amber-200 text-sm">Mission Complete!</div>
+                        <div className="text-amber-300/80">
+                          {activeMission.title} — target "{activeMission.targetMetric}" achieved.
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-4 rounded-2xl bg-slate-800/50 border border-slate-700 flex items-center space-x-3">
+                      <Target className="w-5 h-5 text-slate-400 flex-shrink-0" />
+                      <div className="text-xs">
+                        <div className="font-bold text-slate-200">Target not yet met</div>
+                        <div className="text-slate-400">
+                          {activeMission.title} needs "{activeMission.targetMetric}" — adjust the plan and re-run.
+                        </div>
+                      </div>
+                    </div>
+                  )
+                )}
+
                 <div className="p-4 rounded-2xl bg-[#0e1624] border border-emerald-500/30 space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-white">
