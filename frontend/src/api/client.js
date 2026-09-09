@@ -38,22 +38,28 @@ export const api = {
   checkHealth: () => request('/'),
 
   // Village GIS Layers
-  getVillage: () => request('/api/village'),
+  getVillage: (villageId = 'PB-PAT-001') => request(`/api/village?village_id=${encodeURIComponent(villageId)}`),
 
   // Intervention Catalog
-  getCatalog: () => request('/api/interventions/catalog'),
+  getCatalog: (villageId = 'PB-PAT-001') => request(`/api/interventions/catalog?village_id=${encodeURIComponent(villageId)}`),
 
   // Baseline Conditions Analysis
   getBaselineMetrics: () => request('/api/metrics/baseline'),
 
   // Submit and Simulate Scenario
-  createScenario: (name, budgetLakh, interventions) =>
+  createScenario: (name, budgetLakh, interventions, objective = 'holistic') =>
     request('/api/scenarios', {
       method: 'POST',
       body: JSON.stringify({
         name: name || 'Untitled Plan',
         budget_lakh: Number(budgetLakh),
-        interventions: interventions.map(iv => ({ type: iv.type, target: iv.target })),
+        interventions: interventions.map(iv => ({
+          type: iv.type,
+          target: iv.target,
+          cost_lakh: iv.cost_lakh,
+          label: iv.label,
+        })),
+        objective: objective || 'holistic',
       }),
     }),
 
@@ -64,11 +70,12 @@ export const api = {
   getScenario: (id) => request(`/api/scenarios/${id}`),
 
   // Optimization / AI Recommendation Engine
-  optimize: (budgetLakh) =>
+  optimize: (budgetLakh, objective = 'holistic') =>
     request('/api/optimize', {
       method: 'POST',
       body: JSON.stringify({
         budget_lakh: Number(budgetLakh),
+        objective: objective || 'holistic',
       }),
     }),
 

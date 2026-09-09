@@ -106,9 +106,84 @@ def haversine_m(lat1, lon1, lat2, lon2):
     return 2 * r * math.asin(math.sqrt(a))
 
 
-def village_geojson():
-    """Everything the frontend map needs, in one payload."""
-    return {
+# ---------------------------------------------------------------------------
+# VILLAGE 2: Gharuan (PB-SAS-002) - Smart Rural Hub, SAS Nagar / Mohali
+# ---------------------------------------------------------------------------
+GHARUAN_NODES = {
+    "GN1": {"lat": 30.7065, "lon": 76.5740, "label": "Highway North Gate"},
+    "GN2": {"lat": 30.7052, "lon": 76.5754, "label": "Panchayat & Chowk Hub"},
+    "GN3": {"lat": 30.7040, "lon": 76.5768, "label": "Govt Smart High School"},
+    "GN4": {"lat": 30.7032, "lon": 76.5742, "label": "Heritage Gurdwara & Health Center"},
+    "GN5": {"lat": 30.7022, "lon": 76.5775, "label": "Kisan Hamlet (Zone B)"},
+    "GN6": {"lat": 30.7018, "lon": 76.5732, "label": "Community Water Tank & Tube Well"},
+    "GN7": {"lat": 30.7060, "lon": 76.5770, "label": "Agro Cooperative & Cold Storage"},
+}
+
+GHARUAN_BASE_EDGES = [
+    {"id": "GE1", "a": "GN1", "b": "GN2", "dist_m": 210, "time_min": 3, "condition": "good"},
+    {"id": "GE2", "a": "GN2", "b": "GN3", "dist_m": 190, "time_min": 3, "condition": "good"},
+    {"id": "GE3", "a": "GN2", "b": "GN4", "dist_m": 170, "time_min": 2, "condition": "good"},
+    {"id": "GE4", "a": "GN3", "b": "GN5", "dist_m": 290, "time_min": 6, "condition": "poor"},
+    {"id": "GE5", "a": "GN4", "b": "GN6", "dist_m": 310, "time_min": 7, "condition": "poor"},
+    {"id": "GE6", "a": "GN1", "b": "GN7", "dist_m": 240, "time_min": 4, "condition": "good"},
+]
+
+GHARUAN_PROPOSED_EDGE = {"id": "GE7", "a": "GN5", "b": "GN6", "dist_m": 320, "time_min": 6}
+
+GHARUAN_FACILITIES = {
+    "SCHOOL": {"node": "GN3", "type": "school", "label": "Govt Smart Senior Secondary School"},
+    "HEALTH": {"node": "GN4", "type": "health", "label": "Primary Health Center & Ayush Dispensary"},
+}
+
+GHARUAN_BASE_WATER_POINTS = ["GN6"]
+
+GHARUAN_BUILDINGS = [
+    {"id": "GB1",  "anchor": "GN1", "anchor_time_min": 1, "zone": "zoneA", "lat": 30.7067, "lon": 76.5742, "name": "Balwinder Singh's Haveli"},
+    {"id": "GB2",  "anchor": "GN2", "anchor_time_min": 1, "zone": "zoneA", "lat": 30.7054, "lon": 76.5756, "name": "Sarpanch Sukhdev Singh's Residence"},
+    {"id": "GB3",  "anchor": "GN3", "anchor_time_min": 1, "zone": "zoneA", "lat": 30.7042, "lon": 76.5770, "name": "Master Gurpreet's Homestead"},
+    {"id": "GB4",  "anchor": "GN4", "anchor_time_min": 2, "zone": "zoneA", "lat": 30.7034, "lon": 76.5744, "name": "Granthi Ji Niwas"},
+    {"id": "GB5",  "anchor": "GN7", "anchor_time_min": 1, "zone": "zoneA", "lat": 30.7062, "lon": 76.5772, "name": "Dairy Farmer Amrik's Yard"},
+    {"id": "GB6",  "anchor": "GN2", "anchor_time_min": 2, "zone": "zoneA", "lat": 30.7050, "lon": 76.5750, "name": "Kiran Kaur's Pottery Workshop"},
+    {"id": "GB7",  "anchor": "GN5", "anchor_time_min": 1, "zone": "zoneB", "lat": 30.7024, "lon": 76.5777, "name": "Jagtar Singh's Farmhouse"},
+    {"id": "GB8",  "anchor": "GN5", "anchor_time_min": 2, "zone": "zoneB", "lat": 30.7020, "lon": 76.5773, "name": "Kuldeep's Orchard House"},
+    {"id": "GB9",  "anchor": "GN6", "anchor_time_min": 1, "zone": "zoneB", "lat": 30.7019, "lon": 76.5734, "name": "Gurcharan Singh's Dera"},
+    {"id": "GB10", "anchor": "GN6", "anchor_time_min": 2, "zone": "zoneB", "lat": 30.7016, "lon": 76.5730, "name": "Manjit Kaur's Cottage"},
+    {"id": "GB11", "anchor": "GN3", "anchor_time_min": 2, "zone": "zoneB", "lat": 30.7036, "lon": 76.5774, "name": "Tarsem's Agro Shed"},
+    {"id": "GB12", "anchor": "GN5", "anchor_time_min": 3, "zone": "zoneB", "lat": 30.7028, "lon": 76.5782, "name": "Harbans' Wheat Field Hut"},
+]
+
+GHARUAN_ZONES = {
+    "zoneA": {"label": "Zone A (Village Hub & GT Link)", "drainage_status": "poor"},
+    "zoneB": {"label": "Zone B (Kisan Hamlet & Orchards)", "drainage_status": "poor"},
+}
+
+GHARUAN_INTERVENTION_CATALOG = [
+    {"type": "road_upgrade", "target": "GE4", "cost_lakh": 16,
+     "label": "Upgrade Smart School–Kisan Hamlet road (GE4)"},
+    {"type": "road_upgrade", "target": "GE5", "cost_lakh": 18,
+     "label": "Upgrade Gurdwara–Water Tank track (GE5)"},
+    {"type": "road_new", "target": "GE7", "cost_lakh": 22,
+     "label": "Build new Kisan Hamlet–Tube Well link (GE7)"},
+    {"type": "drainage", "target": "zoneA", "cost_lakh": 15,
+     "label": "Modern covered stormwater drainage in Zone A"},
+    {"type": "drainage", "target": "zoneB", "cost_lakh": 15,
+     "label": "Agricultural runoff recharge canal in Zone B"},
+    {"type": "water_point", "target": "GN3", "cost_lakh": 10,
+     "label": "Solar RO Drinking Water Kiosk at Smart School"},
+    {"type": "water_point", "target": "GN5", "cost_lakh": 12,
+     "label": "Solar Deep Borewell Station at Kisan Hamlet"},
+    {"type": "water_point", "target": "GN2", "cost_lakh": 10,
+     "label": "Community Water Dispenser at Panchayat Chowk"},
+]
+
+# Database index of all registered villages
+VILLAGES_DB = {
+    "PB-PAT-001": {
+        "id": "PB-PAT-001",
+        "name": "Kalyan",
+        "district": "Patiala",
+        "state": "Punjab",
+        "center": [30.3695, 76.3775],
         "nodes": NODES,
         "edges": BASE_EDGES,
         "proposed_edge": PROPOSED_EDGE,
@@ -116,5 +191,49 @@ def village_geojson():
         "zones": ZONES,
         "facilities": FACILITIES,
         "water_points": BASE_WATER_POINTS,
+        "catalog": INTERVENTION_CATALOG,
         "budget_example_lakh": 50,
+    },
+    "PB-SAS-002": {
+        "id": "PB-SAS-002",
+        "name": "Gharuan",
+        "district": "SAS Nagar (Mohali)",
+        "state": "Punjab",
+        "center": [30.7046, 76.5754],
+        "nodes": GHARUAN_NODES,
+        "edges": GHARUAN_BASE_EDGES,
+        "proposed_edge": GHARUAN_PROPOSED_EDGE,
+        "buildings": GHARUAN_BUILDINGS,
+        "zones": GHARUAN_ZONES,
+        "facilities": GHARUAN_FACILITIES,
+        "water_points": GHARUAN_BASE_WATER_POINTS,
+        "catalog": GHARUAN_INTERVENTION_CATALOG,
+        "budget_example_lakh": 60,
+    },
+}
+
+def get_village_data(village_id: str = "PB-PAT-001"):
+    """Fetch complete cadastral dataset for a specified village ID."""
+    return VILLAGES_DB.get(village_id, VILLAGES_DB["PB-PAT-001"])
+
+def get_catalog(village_id: str = "PB-PAT-001"):
+    """Fetch intervention catalog for a village."""
+    v = get_village_data(village_id)
+    return v["catalog"]
+
+def village_geojson(village_id: str = "PB-PAT-001"):
+    """Everything the frontend map + 3D twin needs in one payload."""
+    v = get_village_data(village_id)
+    return {
+        "id": v["id"],
+        "name": v["name"],
+        "center": v["center"],
+        "nodes": v["nodes"],
+        "edges": v["edges"],
+        "proposed_edge": v["proposed_edge"],
+        "buildings": v["buildings"],
+        "zones": v["zones"],
+        "facilities": v["facilities"],
+        "water_points": v["water_points"],
+        "budget_example_lakh": v["budget_example_lakh"],
     }

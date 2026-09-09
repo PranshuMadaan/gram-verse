@@ -22,6 +22,7 @@ export function ThingsToFixDrawer({ isOpen, onClose }) {
     setIsReportProblemOpen,
     setFocusedLocation,
     activeVillage,
+    selectedInterventions,
   } = useVillage();
 
   const [filter, setFilter] = useState('open'); // 'all' | 'open' | 'resolved'
@@ -36,22 +37,22 @@ export function ThingsToFixDrawer({ isOpen, onClose }) {
   const openCount = reportedProblems.filter((p) => p.status === 'open').length;
 
   return (
-    <div className="fixed inset-y-0 right-0 z-50 w-full sm:w-[440px] bg-[#0a0f19]/95 backdrop-blur-xl border-l border-slate-800 shadow-2xl flex flex-col animate-in slide-in-from-right duration-200">
+    <div className="fixed inset-y-0 right-0 z-50 w-full sm:w-[460px] bg-[#0a0f19]/95 backdrop-blur-xl border-l border-slate-800 shadow-2xl flex flex-col animate-in slide-in-from-right duration-200">
       {/* Drawer Header */}
       <div className="p-4 border-b border-slate-800 bg-[#0d1422]/80 flex items-center justify-between">
         <div className="flex items-center space-x-2.5">
-          <div className="p-2 rounded-xl bg-rose-500/10 text-rose-400 border border-rose-500/20">
+          <div className="p-2 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
             <AlertCircle className="w-4 h-4" />
           </div>
           <div>
             <h3 className="font-bold text-sm text-white flex items-center space-x-2">
-              <span>Things to Fix</span>
-              <span className="px-1.5 py-0.2 rounded-full bg-rose-500/20 text-rose-300 text-[10px] font-mono font-bold">
-                {openCount} Open
+              <span>Citizen Requests Queue</span>
+              <span className="px-1.5 py-0.2 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-mono font-bold">
+                {openCount} Live Reports
               </span>
             </h3>
             <p className="text-[11px] text-slate-400 font-mono">
-              {activeVillage.name} Community Issues
+              Pulled live from {activeVillage.name} Resident Game Mode
             </p>
           </div>
         </div>
@@ -126,12 +127,18 @@ export function ThingsToFixDrawer({ isOpen, onClose }) {
               PROBLEM_CATEGORIES.find((c) => c.id === prob.category) || PROBLEM_CATEGORIES[0];
             const isResolved = prob.status === 'resolved';
 
+            const isAllocated = prob.linkedIntervention && selectedInterventions.some(
+              (s) => s.type === prob.linkedIntervention.type && s.target === prob.linkedIntervention.target
+            );
+
             return (
               <div
                 key={prob.id}
                 className={`p-3.5 rounded-2xl border transition-all space-y-2.5 ${
                   isResolved
                     ? 'bg-[#0f1724]/60 border-slate-800/80 opacity-75'
+                    : isAllocated
+                    ? 'bg-[#0f1b2b] border-cyan-500/40 shadow-md'
                     : 'bg-[#0e1624] border-slate-800 hover:border-slate-700 shadow-md'
                 }`}
               >
@@ -150,7 +157,7 @@ export function ThingsToFixDrawer({ isOpen, onClose }) {
                         {prob.title}
                       </h4>
                       <div className="text-[10px] text-slate-400 font-mono mt-0.5 flex items-center space-x-2">
-                        <span>{prob.reportedBy}</span>
+                        <span>Reported by: {prob.reportedBy}</span>
                         <span>·</span>
                         <span>{prob.createdAt}</span>
                       </div>
@@ -170,10 +177,17 @@ export function ThingsToFixDrawer({ isOpen, onClose }) {
                   </span>
                 </div>
 
-                {/* Description */}
+                {/* Description & Linked Intervention preview */}
                 <p className="text-[11px] text-slate-300 leading-relaxed font-sans">
                   {prob.description}
                 </p>
+
+                {prob.linkedIntervention && (
+                  <div className="text-[10px] font-mono text-cyan-400 bg-cyan-500/10 px-2 py-1 rounded-lg border border-cyan-500/20 flex items-center justify-between">
+                    <span>Target Intervention: {prob.linkedIntervention.label}</span>
+                    <span className="font-bold">₹{prob.linkedIntervention.cost_lakh}L</span>
+                  </div>
+                )}
 
                 {/* Card Actions */}
                 <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between gap-2 text-xs">
@@ -196,16 +210,23 @@ export function ThingsToFixDrawer({ isOpen, onClose }) {
                     )}
 
                     {!isResolved && (
-                      <button
-                        onClick={() => {
-                          convertProblemToPlan(prob);
-                          onClose();
-                        }}
-                        className="px-2.5 py-1 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-[11px] font-bold transition-all shadow-glow flex items-center space-x-1"
-                      >
-                        <Hammer className="w-3 h-3" />
-                        <span>Add to Plan</span>
-                      </button>
+                      isAllocated ? (
+                        <span className="px-2 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold flex items-center space-x-1">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                          <span>In Active Plan</span>
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            convertProblemToPlan(prob);
+                            onClose();
+                          }}
+                          className="px-2.5 py-1 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white text-[11px] font-bold transition-all shadow-glow flex items-center space-x-1"
+                        >
+                          <Hammer className="w-3 h-3" />
+                          <span>Accept & Add to Plan</span>
+                        </button>
+                      )
                     )}
 
                     <button

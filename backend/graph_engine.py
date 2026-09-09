@@ -15,6 +15,18 @@ from village_data import (
     SCHOOL_ACCESS_THRESHOLD_MIN, WATER_ACCESS_RADIUS_M, haversine_m,
 )
 
+# ---------------------------------------------------------------------------
+# Objective-aware composite-score weights.
+# When a mission focuses on a specific domain, that domain's weight is
+# boosted to ~85% so irrelevant interventions can't inflate the score.
+# ---------------------------------------------------------------------------
+OBJECTIVE_WEIGHTS = {
+    "holistic": {"school_access": 0.4,  "water_access": 0.3,  "drainage": 0.3},
+    "school":   {"school_access": 0.85, "water_access": 0.05, "drainage": 0.10},
+    "water":    {"school_access": 0.05, "water_access": 0.85, "drainage": 0.10},
+    "drainage": {"school_access": 0.10, "water_access": 0.05, "drainage": 0.85},
+}
+
 
 def build_graph(edges):
     g = nx.Graph()
@@ -33,11 +45,12 @@ def _time_to_school(g, anchor_node):
         return float("inf")
 
 
-def compute_metrics(edges, zones_status, water_points):
+def compute_metrics(edges, zones_status, water_points, objective="holistic"):
     """
     Returns a dict of explainable indicators plus a composite score.
     `zones_status` maps zone_id -> 'poor' | 'improved'.
     `water_points` is a list of node_ids currently serving as water sources.
+    `objective` selects which composite-score weight profile to use.
     """
     g = build_graph(edges)
     total = len(BUILDINGS)
@@ -81,9 +94,9 @@ def compute_metrics(edges, zones_status, water_points):
     finite_times = [t for t in travel_times if t != float("inf")]
     avg_school_time = round(sum(finite_times) / len(finite_times), 1) if finite_times else None
 
-    # Composite score — weights are explicit and shown to the user, per
-    # brief section 16 ("Unclear scoring" risk).
-    weights = {"school_access": 0.4, "water_access": 0.3, "drainage": 0.3}
+    # Composite score — weights vary by planning objective and are always
+    # returned so the frontend can display them transparently.
+    weights = OBJECTIVE_WEIGHTS.get(objective, OBJECTIVE_WEIGHTS["holistic"])
     composite = round(
         weights["school_access"] * school_pct
         + weights["water_access"] * water_pct
@@ -98,5 +111,6 @@ def compute_metrics(edges, zones_status, water_points):
         "avg_time_to_school_min": avg_school_time,
         "composite_score": composite,
         "score_weights": weights,
+        "objective": objective,
         "buildings": per_building,
     }

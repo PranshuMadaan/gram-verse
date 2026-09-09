@@ -12,12 +12,12 @@ import graph_engine
 import interventions as iv_module
 
 
-def baseline_metrics():
+def baseline_metrics(objective="holistic"):
     zones_status = {z: info["drainage_status"] for z, info in ZONES.items()}
-    return graph_engine.compute_metrics(BASE_EDGES, zones_status, BASE_WATER_POINTS)
+    return graph_engine.compute_metrics(BASE_EDGES, zones_status, BASE_WATER_POINTS, objective=objective)
 
 
-def run_simulation(interventions, budget_lakh):
+def run_simulation(interventions, budget_lakh, objective="holistic"):
     budget_check = iv_module.validate_budget(interventions, budget_lakh)
     if not budget_check["ok"]:
         return {
@@ -29,8 +29,8 @@ def run_simulation(interventions, budget_lakh):
         }
 
     edges, zones_status, water_points = iv_module.apply_interventions(interventions)
-    metrics = graph_engine.compute_metrics(edges, zones_status, water_points)
-    base = baseline_metrics()
+    metrics = graph_engine.compute_metrics(edges, zones_status, water_points, objective=objective)
+    base = baseline_metrics(objective=objective)
 
     delta = {
         k: round(metrics[k] - base[k], 1)
@@ -41,7 +41,10 @@ def run_simulation(interventions, budget_lakh):
     return {
         "valid": True,
         "budget": budget_check,
+        "total_cost_lakh": budget_check.get("total_cost_lakh", 0),
+        "unspent_lakh": budget_check.get("unspent_lakh", 0),
         "metrics": metrics,
         "baseline_metrics": base,
         "delta": delta,
+        "deltas": delta,
     }

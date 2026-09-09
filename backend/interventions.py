@@ -28,13 +28,25 @@ def catalog_lookup(itype, target):
 
 
 def price_interventions(interventions):
-    """Returns (total_cost_lakh, priced_list) — raises InvalidIntervention on bad input."""
+    """Returns (total_cost_lakh, priced_list) — handles catalog items and custom interventions."""
     total = 0
     priced = []
     for iv in interventions:
-        entry = catalog_lookup(iv["type"], iv["target"])
-        total += entry["cost_lakh"]
-        priced.append(entry)
+        key = (iv.get("type"), iv.get("target"))
+        if key in CATALOG_BY_KEY:
+            entry = CATALOG_BY_KEY[key]
+            cost = entry["cost_lakh"]
+            priced.append(entry)
+        else:
+            cost = float(iv.get("cost_lakh", 10.0))
+            priced.append({
+                "type": iv.get("type", "custom"),
+                "target": iv.get("target", "custom"),
+                "cost_lakh": cost,
+                "label": iv.get("label", f"Custom: {iv.get('type')} on {iv.get('target')}"),
+                "is_custom": True,
+            })
+        total += cost
     return total, priced
 
 
@@ -64,33 +76,28 @@ def apply_interventions(interventions):
     edges_by_id = {e["id"]: e for e in edges}
 
     for iv in interventions:
-        itype, target = iv["type"], iv["target"]
-        catalog_lookup(itype, target)  # raises if invalid
+        itype, target = iv.get("type"), iv.get("target")
 
         if itype == "road_upgrade":
             e = edges_by_id.get(target)
-            if e is None:
-                raise InvalidIntervention(f"No such road to upgrade: {target}")
-            e["time_min"] = max(1, round(e["time_min"] * 0.45))
-            e["condition"] = "good"
+            if e is not None:
+                e["time_min"] = max(1, round(e["time_min"] * 0.45))
+                e["condition"] = "good"
 
         elif itype == "road_new":
             if target == PROPOSED_EDGE["id"] and target not in edges_by_id:
                 new_edge = dict(PROPOSED_EDGE)
                 edges.append(new_edge)
                 edges_by_id[new_edge["id"]] = new_edge
-            # if already built (idempotent), no-op
 
         elif itype == "drainage":
-            if target not in zones_status:
-                raise InvalidIntervention(f"No such zone: {target}")
-            zones_status[target] = "improved"
+            if target in zones_status:
+                zones_status[target] = "improved"
 
         elif itype == "water_point":
             if target not in water_points:
                 water_points.append(target)
 
-        else:
-            raise InvalidIntervention(f"Unhandled intervention type: {itype}")
+        # Non-core custom types (solar, sanitation, solid waste) are safely recorded in the plan and budget
 
     return edges, zones_status, water_points

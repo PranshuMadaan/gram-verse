@@ -114,7 +114,7 @@ export function makeGroundTex() {
     ctx.ellipse(Math.random() * 512, Math.random() * 512, 14 + Math.random() * 26, 10 + Math.random() * 18, Math.random() * Math.PI, 0, Math.PI * 2);
     ctx.fill();
   }
-  return canvasTex(c, 24, 24);
+  return canvasTex(c, 32, 32);
 }
 
 // Crystalline Silicon Solar Panel Texture
@@ -803,7 +803,7 @@ export function createSkyDome(topColor, horizColor) {
   ctx.fillStyle=grd; ctx.fillRect(0,0,2,128);
   var tex=new THREE.CanvasTexture(c);
   tex.colorSpace=THREE.SRGBColorSpace;
-  var geo=new THREE.SphereGeometry(480,32,16);
+  var geo=new THREE.SphereGeometry(750,32,16);
   geo.scale(-1,1,1);
   return new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: tex }));
 }

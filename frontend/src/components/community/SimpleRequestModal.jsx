@@ -34,7 +34,7 @@ function buildLinkedIntervention(categoryObj, title) {
  * rule-based "AI assist" suggests the category, title and urgency for them
  * to confirm or correct — no jargon, no dropdowns required up front.
  */
-export function SimpleRequestModal({ isOpen, onClose, mode = 'problem' }) {
+export function SimpleRequestModal({ isOpen, onClose, mode = 'problem', bountyContext = null }) {
   const {
     activeVillage,
     village,
@@ -51,9 +51,18 @@ export function SimpleRequestModal({ isOpen, onClose, mode = 'problem' }) {
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
+  // If opened via a bounty quest, pre-fill text and category
+  React.useEffect(() => {
+    if (bountyContext && isOpen) {
+      setText(bountyContext.description || bountyContext.title);
+      setCategoryId(bountyContext.category || null);
+      setPriority(bountyContext.urgency || 'high');
+    }
+  }, [bountyContext, isOpen]);
+
   const suggestion = useMemo(() => classifyRequest(text), [text]);
-  const finalCategoryId = categoryId || suggestion.categoryId;
-  const finalPriority = priority || suggestion.suggestedPriority;
+  const finalCategoryId = categoryId || (bountyContext ? bountyContext.category : suggestion.categoryId);
+  const finalPriority = priority || (bountyContext ? bountyContext.urgency : suggestion.suggestedPriority);
   const categoryObj = PROBLEM_CATEGORIES.find((c) => c.id === finalCategoryId) || PROBLEM_CATEGORIES[PROBLEM_CATEGORIES.length - 1];
 
   const isProblem = mode === 'problem';
@@ -97,6 +106,7 @@ export function SimpleRequestModal({ isOpen, onClose, mode = 'problem' }) {
       aiAssisted: true,
       aiMatchedKeywords: suggestion.matchedKeywords,
       linkedIntervention: buildLinkedIntervention(categoryObj, suggestion.suggestedTitle),
+      questTitle: bountyContext ? bountyContext.title : null,
     };
 
     reportProblem(newProblem);

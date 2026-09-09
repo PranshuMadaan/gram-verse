@@ -17,7 +17,7 @@ export const MISSIONS = [
     description:
       'Far Hamlet (Zone B) students currently face walking times up to 23 minutes. Modernize bottleneck road links (E3, E5) or build corridor E6 within a strict ₹35L budget.',
     difficulty: 'Moderate',
-    checkSuccess: (metrics) => metrics.school_accessibility_pct >= 70,
+    checkSuccess: (metrics) => Boolean(metrics && metrics.school_accessibility_pct >= 70),
   },
   {
     id: 'mission-flood',
@@ -32,7 +32,7 @@ export const MISSIONS = [
     description:
       'Zero stormwater drainage exists currently, leaving both Zone A and Zone B vulnerable to monsoon waterlogging. Fund community drainage projects within ₹30L.',
     difficulty: 'Direct',
-    checkSuccess: (metrics) => metrics.drainage_coverage_pct >= 100,
+    checkSuccess: (metrics) => Boolean(metrics && metrics.drainage_coverage_pct >= 100),
   },
   {
     id: 'mission-water',
@@ -47,7 +47,7 @@ export const MISSIONS = [
     description:
       '80% of households are outside the 150m walking buffer from existing water sources. Place new decentralized water points at key junctions within ₹30L.',
     difficulty: 'Tactical',
-    checkSuccess: (metrics) => metrics.water_access_pct >= 70,
+    checkSuccess: (metrics) => Boolean(metrics && metrics.water_access_pct >= 70),
   },
   {
     id: 'mission-holistic',
@@ -62,7 +62,7 @@ export const MISSIONS = [
     description:
       'Balance road connectivity, flood prevention, and potable water distribution across both village zones to achieve an outstanding composite development score.',
     difficulty: 'Master Planner',
-    checkSuccess: (metrics) => metrics.composite_score >= 70,
+    checkSuccess: (metrics) => Boolean(metrics && (metrics.composite_score ?? 0) >= 70),
   },
 ];
 

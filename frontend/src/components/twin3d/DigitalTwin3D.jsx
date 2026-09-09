@@ -128,16 +128,69 @@ export function DigitalTwin3D({
   selectedInterventions = [],
   elevationProfile = null,
   height = '520px',
+  onObjectClick = null,
 }) {
-  const { setIsSolarModalOpen } = useVillage();
+  const { appMode } = useVillage();
   const mountRef = useRef(null);
+  const onObjectClickRef = useRef(onObjectClick);
+  useEffect(() => {
+    onObjectClickRef.current = onObjectClick;
+  }, [onObjectClick]);
   const [autoRotate, setAutoRotate] = useState(true);
   const [cameraPreset, setCameraPreset] = useState('iso'); // 'iso' | 'top' | 'horizon'
   const [timeOfDay, setTimeOfDay] = useState('day');
   const [showWaterRadius, setShowWaterRadius] = useState(true);
   const [showFoliage, setShowFoliage] = useState(true);
-  const [isExpanded, setIsExpanded] = useState(false);
   const [inspectedEntity, setInspectedEntity] = useState(null);
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  // WASD / Arrow Keys Navigation State
+  const keysPressedRef = useRef({});
+  const [pressedKeys, setPressedKeys] = useState({});
+  const [isNavWidgetCollapsed, setIsNavWidgetCollapsed] = useState(false);
+
+  const setNavKey = useCallback((code, isDown) => {
+    keysPressedRef.current[code] = isDown;
+    setPressedKeys(prev => {
+      if (isDown) return { ...prev, [code]: true };
+      const next = { ...prev };
+      delete next[code];
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) {
+        return;
+      }
+      const code = e.code;
+      const navCodes = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'KeyQ', 'KeyE', 'Space', 'ShiftLeft', 'ShiftRight'];
+      if (navCodes.includes(code)) {
+        keysPressedRef.current[code] = true;
+        setPressedKeys(prev => ({ ...prev, [code]: true }));
+      }
+    };
+
+    const handleKeyUp = (e) => {
+      const code = e.code;
+      if (keysPressedRef.current[code]) {
+        keysPressedRef.current[code] = false;
+        setPressedKeys(prev => {
+          const next = { ...prev };
+          delete next[code];
+          return next;
+        });
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, []);
 
   // Scene references
   const isRotatingRef = useRef(true);
@@ -299,7 +352,7 @@ export function DigitalTwin3D({
     controls.enableDamping = true;
     controls.dampingFactor = 0.06;
     controls.minDistance = 8;
-    controls.maxDistance = 320;
+    controls.maxDistance = 600;
     controls.maxPolarAngle = Math.PI / 2.04;
     controls.target.set(0, 2, 0);
     controls.autoRotate = autoRotate;
@@ -345,18 +398,21 @@ export function DigitalTwin3D({
     windowEmissivesRef.current = [];
 
     // 3. Coordinate Projection Helper — real metres (1 unit = 1 m)
-    const geo = makeGeoConverter(30.3695, 76.3775);
+    const firstNode = village?.nodes ? Object.values(village.nodes)[0] : null;
+    const centerLat = village?.meta?.center?.[0] || village?.center?.[0] || (firstNode ? firstNode.lat : 30.3695);
+    const centerLon = village?.meta?.center?.[1] || village?.center?.[1] || (firstNode ? firstNode.lon : 76.3775);
+    const geo = makeGeoConverter(centerLat, centerLon);
     const toSceneCoords = (lat, lon) => geo.toXZ(lat, lon);
 
-    // Elevation: gentle undulation, small village is essentially flat
+    // Elevation: gentle undulation across wide 800m terrain
     const getElevation = (x, z) => (
-      Math.sin(x * 0.06) * 0.25 +
-      Math.cos(z * 0.05) * 0.2 +
-      (x - z) * 0.008
+      Math.sin(x * 0.04) * 0.35 +
+      Math.cos(z * 0.035) * 0.3 +
+      (x - z) * 0.005
     );
 
-    // 4. Terrain — undulating MeshLambertMaterial plane (expansive 600m x 600m)
-    const terrainGeo = new THREE.PlaneGeometry(600, 600, 128, 128);
+    // 4. Terrain — expansive 800m x 800m lush monsoon grass meadow
+    const terrainGeo = new THREE.PlaneGeometry(800, 800, 160, 160);
     const tPos = terrainGeo.attributes.position;
     for (let i = 0; i < tPos.count; i++) {
       const px = tPos.getX(i);
@@ -369,7 +425,7 @@ export function DigitalTwin3D({
     terrain.receiveShadow = true;
     scene.add(terrain);
 
-    // Surrounding Farmland Cadastral Parcels with crop furrow textures
+    // Surrounding Farmland Cadastral Parcels across the expansive 800m canvas
     const fieldPatches = [
       { x: -26, z: -20, w: 22, d: 16, rot: 0.08 },
       { x: 26, z: -18, w: 20, d: 18, rot: -0.05 },
@@ -377,6 +433,15 @@ export function DigitalTwin3D({
       { x: 24, z: 26, w: 20, d: 18, rot: -0.08 },
       { x: 0, z: -32, w: 28, d: 14, rot: 0.02 },
       { x: -32, z: 2, w: 16, d: 24, rot: -0.04 },
+      // Expansive 800m perimeter farmlands
+      { x: -65, z: -55, w: 45, d: 38, rot: 0.04 },
+      { x: 62, z: -60, w: 40, d: 42, rot: -0.06 },
+      { x: -68, z: 52, w: 44, d: 36, rot: 0.07 },
+      { x: 68, z: 58, w: 42, d: 38, rot: -0.05 },
+      { x: 0, z: 85, w: 55, d: 32, rot: 0.02 },
+      { x: 0, z: -90, w: 52, d: 34, rot: -0.03 },
+      { x: -105, z: -10, w: 40, d: 55, rot: 0.05 },
+      { x: 105, z: 12, w: 42, d: 52, rot: -0.04 },
     ];
     fieldPatches.forEach((fp) => {
       const fGeo = new THREE.PlaneGeometry(fp.w, fp.d, 12, 12);
@@ -882,6 +947,9 @@ export function DigitalTwin3D({
         const owner = hits[0].object._ownerGroup;
         if (owner && owner.userData?.name) {
           setInspectedEntity({ ...owner.userData });
+          if (onObjectClickRef.current) {
+            onObjectClickRef.current(owner.userData);
+          }
         }
       }
     };
@@ -912,6 +980,64 @@ export function DigitalTwin3D({
         pArr[i] += Math.sin(clock + i) * 0.004;
       }
       particles.geometry.attributes.position.needsUpdate = true;
+
+      // WASD / Keyboard Sandbox Camera Flight Navigation
+      const keys = keysPressedRef.current;
+      const isMoving =
+        keys['KeyW'] || keys['ArrowUp'] ||
+        keys['KeyS'] || keys['ArrowDown'] ||
+        keys['KeyA'] || keys['ArrowLeft'] ||
+        keys['KeyD'] || keys['ArrowRight'] ||
+        keys['KeyQ'] || keys['KeyE'] || keys['Space'];
+
+      if (isMoving) {
+        if (controls.autoRotate) {
+          controls.autoRotate = false;
+        }
+
+        const forward = new THREE.Vector3();
+        camera.getWorldDirection(forward);
+        forward.y = 0;
+        forward.normalize();
+
+        const right = new THREE.Vector3();
+        right.crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
+
+        const isFast = keys['ShiftLeft'] || keys['ShiftRight'];
+        const speed = isFast ? 1.2 : 0.45;
+        const moveVector = new THREE.Vector3();
+
+        if (keys['KeyW'] || keys['ArrowUp']) {
+          moveVector.addScaledVector(forward, speed);
+        }
+        if (keys['KeyS'] || keys['ArrowDown']) {
+          moveVector.addScaledVector(forward, -speed);
+        }
+        if (keys['KeyD'] || keys['ArrowRight']) {
+          moveVector.addScaledVector(right, speed);
+        }
+        if (keys['KeyA'] || keys['ArrowLeft']) {
+          moveVector.addScaledVector(right, -speed);
+        }
+        if (keys['KeyE'] || keys['Space']) {
+          moveVector.y += speed * 0.6;
+        }
+        if (keys['KeyQ']) {
+          moveVector.y -= speed * 0.6;
+        }
+
+        controls.target.add(moveVector);
+        camera.position.add(moveVector);
+
+        // Clamp camera altitude bounds to stay comfortably above ground and below sky
+        if (camera.position.y < 2.0) {
+          const diff = 2.0 - camera.position.y;
+          camera.position.y = 2.0;
+          controls.target.y += diff;
+        } else if (camera.position.y > 180) {
+          camera.position.y = 180;
+        }
+      }
 
       controls.update();
       renderer.render(scene, camera);
@@ -963,19 +1089,9 @@ export function DigitalTwin3D({
       <div className={`absolute ${isExpanded ? 'top-3' : 'top-16 md:top-20'} left-3 z-20 flex flex-wrap items-center gap-2 pointer-events-auto`}>
         <div className="bg-[#0b111c]/90 backdrop-blur-md px-3.5 py-1.5 rounded-xl border border-slate-700/60 shadow-xl flex items-center space-x-2 text-xs font-mono text-cyan-400">
           <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse shadow-glow" />
-          <span className="font-bold tracking-wider">Hiware / Kalyan 3D Twin</span>
-          <span className="text-[10px] text-slate-400 font-sans">· SIH1704</span>
+          <span className="font-bold tracking-wider">Patiala / Kalyan 3D Twin</span>
+          <span className="text-[10px] text-slate-400 font-sans">· Cadastral Sandbox</span>
         </div>
-
-        {/* ☀️ SDG 7 Solar Microgrid Quick Button */}
-        <button
-          onClick={() => setIsSolarModalOpen(true)}
-          className="bg-gradient-to-r from-amber-500/25 via-orange-500/20 to-cyan-500/25 hover:from-amber-500/35 hover:to-cyan-500/35 px-3 py-1.5 rounded-xl border border-amber-500/50 shadow-glow flex items-center space-x-1.5 text-xs font-bold text-amber-300 hover:text-amber-200 transition-all animate-pulse"
-          title="Open SDG 7 Solar Transition Case Study & Financials"
-        >
-          <Sun className="w-3.5 h-3.5 text-amber-400" />
-          <span>☀️ Solar SDG Studio</span>
-        </button>
 
         {/* Camera Preset Quick Buttons */}
         <div className="flex items-center space-x-1 bg-[#0b111c]/90 backdrop-blur-md p-1 rounded-xl border border-slate-700/60 shadow-md text-xs">
@@ -1135,74 +1251,19 @@ export function DigitalTwin3D({
             {inspectedEntity.story || inspectedEntity.details}
           </div>
 
-          {/* SDG Solar Microgrid Deep-Dive Button if solar entity */}
-          {inspectedEntity.isSolar && (
-            <div className="space-y-2 pt-1">
-              <div className="grid grid-cols-2 gap-2 text-xs font-mono">
-                <div className="bg-[#101826] p-2 rounded-xl border border-slate-800">
-                  <span className="text-[10px] text-slate-400 block">Daily Generation</span>
-                  <span className="font-bold text-amber-400">50 kWh / day</span>
-                </div>
-                <div className="bg-[#101826] p-2 rounded-xl border border-slate-800">
-                  <span className="text-[10px] text-slate-400 block">GHG Eliminated</span>
-                  <span className="font-bold text-emerald-400">21.7 Tons CO₂e/yr</span>
-                </div>
-              </div>
-              <button
-                onClick={() => setIsSolarModalOpen(true)}
-                className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-amber-500 to-cyan-500 hover:from-amber-400 hover:to-cyan-400 text-slate-950 font-bold text-xs flex items-center justify-center space-x-2 shadow-glow transition-all"
-              >
-                <Sun className="w-4 h-4" />
-                <span>Open SDG Solar Case Study & Financials</span>
-              </button>
-            </div>
-          )}
-
-          {/* Metrics Badges if residential */}
-          {inspectedEntity.schoolTime && (
-            <div className="grid grid-cols-2 gap-2 text-xs pt-1">
-              <div className="bg-[#101826] p-2 rounded-xl border border-slate-800/80">
-                <div className="text-[10px] text-slate-400 flex items-center space-x-1">
-                  <GraduationCap className="w-3 h-3 text-cyan-400" />
-                  <span>School Access</span>
-                </div>
-                <div className="mt-1 flex items-center justify-between">
-                  <span className="font-mono font-bold text-white">
-                    {inspectedEntity.schoolTime}
-                  </span>
-                  {inspectedEntity.isSchoolOk ? (
-                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
-                      ≤8 min
-                    </span>
-                  ) : (
-                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40">
-                      Deficit
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              <div className="bg-[#101826] p-2 rounded-xl border border-slate-800/80">
-                <div className="text-[10px] text-slate-400 flex items-center space-x-1">
-                  <Droplets className="w-3 h-3 text-blue-400" />
-                  <span>Drinking Water</span>
-                </div>
-                <div className="mt-1 flex items-center justify-between">
-                  <span className="font-mono font-bold text-white">
-                    {inspectedEntity.waterDist}
-                  </span>
-                  {inspectedEntity.isWaterOk ? (
-                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
-                      Served
-                    </span>
-                  ) : (
-                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">
-                      &gt;150m
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
+          {/* Resident Mode Action: Report Issue Directly for this Entity */}
+          {appMode === 'simple' && (
+            <button
+              onClick={() => {
+                if (onObjectClickRef.current) {
+                  onObjectClickRef.current(inspectedEntity);
+                }
+              }}
+              className="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-black text-xs flex items-center justify-center space-x-1.5 transition-all shadow-glow"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Report Issue for {inspectedEntity.name} (+XP)</span>
+            </button>
           )}
 
           {/* Action: Focus Camera */}
@@ -1241,8 +1302,112 @@ export function DigitalTwin3D({
           <span>Check Dam Reservoir & 150m Well Radius</span>
         </div>
         <div className="text-[10px] text-slate-500 pt-1 border-t border-slate-800">
-          Click any building to inspect · Drag to orbit · Scroll to zoom
+          WASD / Arrows to Fly · Click building to inspect · Drag to orbit · Scroll to zoom
         </div>
+      </div>
+
+      {/* Floating WASD Navigation Controls Widget */}
+      <div className="absolute bottom-24 sm:bottom-6 left-3 z-20 pointer-events-auto select-none">
+        {isNavWidgetCollapsed ? (
+          <button
+            onClick={() => setIsNavWidgetCollapsed(false)}
+            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-[#0b111c]/90 backdrop-blur-md border border-slate-700/60 text-xs font-mono text-cyan-400 hover:text-cyan-300 shadow-xl transition-all"
+            title="Expand WASD Navigation Controls"
+          >
+            <Navigation className="w-3.5 h-3.5" />
+            <span className="font-bold">WASD Controls</span>
+          </button>
+        ) : (
+          <div className="bg-[#0a0f19]/92 backdrop-blur-xl p-3 rounded-2xl border border-slate-700/70 shadow-2xl flex flex-col items-center space-y-2">
+            <div className="w-full flex items-center justify-between text-[10px] font-mono text-cyan-400 font-bold uppercase tracking-wider pb-1 border-b border-slate-800">
+              <div className="flex items-center space-x-1.5">
+                <Navigation className="w-3 h-3" />
+                <span>Fly Navigation</span>
+              </div>
+              <button
+                onClick={() => setIsNavWidgetCollapsed(true)}
+                className="text-slate-500 hover:text-slate-300 ml-2"
+                title="Minimize Controls"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* D-Pad Keys */}
+            <div className="flex flex-col items-center space-y-1">
+              <button
+                onMouseDown={() => setNavKey('KeyW', true)}
+                onMouseUp={() => setNavKey('KeyW', false)}
+                onTouchStart={() => setNavKey('KeyW', true)}
+                onTouchEnd={() => setNavKey('KeyW', false)}
+                className={`w-8 h-8 rounded-lg font-mono font-bold text-xs flex items-center justify-center border transition-all ${
+                  pressedKeys['KeyW'] || pressedKeys['ArrowUp']
+                    ? 'bg-amber-400 text-slate-950 border-amber-300 shadow-[0_0_12px_rgba(245,158,11,0.5)] scale-95'
+                    : 'bg-[#121a29] text-slate-300 border-slate-700 hover:border-cyan-500/50'
+                }`}
+                title="Move Forward (W / Up Arrow)"
+              >
+                W
+              </button>
+
+              <div className="flex items-center space-x-1">
+                <button
+                  onMouseDown={() => setNavKey('KeyA', true)}
+                  onMouseUp={() => setNavKey('KeyA', false)}
+                  onTouchStart={() => setNavKey('KeyA', true)}
+                  onTouchEnd={() => setNavKey('KeyA', false)}
+                  className={`w-8 h-8 rounded-lg font-mono font-bold text-xs flex items-center justify-center border transition-all ${
+                    pressedKeys['KeyA'] || pressedKeys['ArrowLeft']
+                      ? 'bg-amber-400 text-slate-950 border-amber-300 shadow-[0_0_12px_rgba(245,158,11,0.5)] scale-95'
+                      : 'bg-[#121a29] text-slate-300 border-slate-700 hover:border-cyan-500/50'
+                  }`}
+                  title="Strafe Left (A / Left Arrow)"
+                >
+                  A
+                </button>
+
+                <button
+                  onMouseDown={() => setNavKey('KeyS', true)}
+                  onMouseUp={() => setNavKey('KeyS', false)}
+                  onTouchStart={() => setNavKey('KeyS', true)}
+                  onTouchEnd={() => setNavKey('KeyS', false)}
+                  className={`w-8 h-8 rounded-lg font-mono font-bold text-xs flex items-center justify-center border transition-all ${
+                    pressedKeys['KeyS'] || pressedKeys['ArrowDown']
+                      ? 'bg-amber-400 text-slate-950 border-amber-300 shadow-[0_0_12px_rgba(245,158,11,0.5)] scale-95'
+                      : 'bg-[#121a29] text-slate-300 border-slate-700 hover:border-cyan-500/50'
+                  }`}
+                  title="Move Backward (S / Down Arrow)"
+                >
+                  S
+                </button>
+
+                <button
+                  onMouseDown={() => setNavKey('KeyD', true)}
+                  onMouseUp={() => setNavKey('KeyD', false)}
+                  onTouchStart={() => setNavKey('KeyD', true)}
+                  onTouchEnd={() => setNavKey('KeyD', false)}
+                  className={`w-8 h-8 rounded-lg font-mono font-bold text-xs flex items-center justify-center border transition-all ${
+                    pressedKeys['KeyD'] || pressedKeys['ArrowRight']
+                      ? 'bg-amber-400 text-slate-950 border-amber-300 shadow-[0_0_12px_rgba(245,158,11,0.5)] scale-95'
+                      : 'bg-[#121a29] text-slate-300 border-slate-700 hover:border-cyan-500/50'
+                  }`}
+                  title="Strafe Right (D / Right Arrow)"
+                >
+                  D
+                </button>
+              </div>
+            </div>
+
+            {/* Additional Altitude / Speed shortcuts */}
+            <div className="flex items-center space-x-2 text-[9px] font-mono text-slate-400 pt-1 border-t border-slate-800">
+              <span className={pressedKeys['KeyQ'] ? 'text-amber-300 font-bold' : ''}>Q: Down</span>
+              <span>·</span>
+              <span className={pressedKeys['KeyE'] ? 'text-amber-300 font-bold' : ''}>E: Up</span>
+              <span>·</span>
+              <span className={pressedKeys['ShiftLeft'] || pressedKeys['ShiftRight'] ? 'text-cyan-300 font-bold' : ''}>Shift: Sprint</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* WebGL Rendering Canvas Container */}

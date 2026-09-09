@@ -24,6 +24,10 @@ export function VillageProvider({ children }) {
     if (hasChosenRole) {
       localStorage.setItem('gramverse_role', appMode);
     }
+    // Auto-default to 3D sandbox world when entering Resident Mode
+    if (appMode === 'simple') {
+      setViewMode('3d');
+    }
   }, [appMode, hasChosenRole]);
 
   // View Dimension: '2d' (Satellite map) vs '3d' (Digital Twin)
@@ -46,12 +50,85 @@ export function VillageProvider({ children }) {
   const [reportedProblems, setReportedProblems] = useState(INITIAL_COMMUNITY_PROBLEMS);
   const [communityFeatures, setCommunityFeatures] = useState([]);
 
+  // Resident Gamification Engine State
+  const [playerProfile, setPlayerProfile] = useState(() => {
+    try {
+      const saved = localStorage.getItem('gramverse_player');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return {
+      name: 'Harpreet Singh',
+      level: 2,
+      xp: 350,
+      xpToNextLevel: 500,
+      coins: 140,
+      badges: [
+        { id: 'village_guardian', name: 'Village Guardian', icon: '🛡️', desc: 'Registered resident surveyor' },
+        { id: 'first_report', name: 'First Responder', icon: '🌟', desc: 'Reported first village problem' },
+      ],
+      reportsCount: 3,
+    };
+  });
+
+  const [activeRewardModal, setActiveRewardModal] = useState(null);
+
+  const awardRewards = ({ xp = 150, coins = 50, badge = null, questTitle = null, message = null }) => {
+    setPlayerProfile((prev) => {
+      let newXp = prev.xp + xp;
+      let newLevel = prev.level;
+      let newXpTarget = prev.xpToNextLevel;
+      let leveledUp = false;
+
+      while (newXp >= newXpTarget) {
+        newXp -= newXpTarget;
+        newLevel += 1;
+        newXpTarget = newLevel * 300;
+        leveledUp = true;
+      }
+
+      const existingBadgeIds = new Set(prev.badges.map((b) => b.id));
+      const updatedBadges = [...prev.badges];
+      let awardedBadge = null;
+
+      if (badge && !existingBadgeIds.has(badge.id)) {
+        updatedBadges.push(badge);
+        awardedBadge = badge;
+      }
+
+      const updatedProfile = {
+        ...prev,
+        level: newLevel,
+        xp: newXp,
+        xpToNextLevel: newXpTarget,
+        coins: prev.coins + coins,
+        badges: updatedBadges,
+        reportsCount: prev.reportsCount + 1,
+      };
+
+      try {
+        localStorage.setItem('gramverse_player', JSON.stringify(updatedProfile));
+      } catch {}
+
+      setActiveRewardModal({
+        xp,
+        coins,
+        badge: awardedBadge,
+        leveledUp,
+        newLevel,
+        message,
+        questTitle,
+      });
+
+      return updatedProfile;
+    });
+  };
+
   // Modals & Drawers Visibility
   const [isReportProblemOpen, setIsReportProblemOpen] = useState(false);
   const [isAddFeatureOpen, setIsAddFeatureOpen] = useState(false);
   const [isThingsToFixOpen, setIsThingsToFixOpen] = useState(false);
   const [isPlanningDrawerOpen, setIsPlanningDrawerOpen] = useState(false);
-  const [isSolarModalOpen, setIsSolarModalOpen] = useState(false);
+
 
   // Map Coordinate Picker Mode
   const [pickLocationMode, setPickLocationMode] = useState(null); // 'problem' | 'feature' | null
@@ -106,8 +183,8 @@ export function VillageProvider({ children }) {
 
       if (vMeta.id === 'PB-PAT-001' || vMeta.isPilot) {
         const [layers, cData, bData, sData] = await Promise.all([
-          villageDataService.getVillageLayers('PB-PAT-001'),
-          api.getCatalog(),
+          villageDataService.getVillageLayers(vMeta.id),
+          api.getCatalog(vMeta.id),
           api.getBaselineMetrics(),
           api.listScenarios(),
         ]);
@@ -166,7 +243,39 @@ export function VillageProvider({ children }) {
   // Community Problem Actions
   const reportProblem = (newProblem) => {
     setReportedProblems((prev) => [newProblem, ...prev]);
-    showToast(`Reported issue: "${newProblem.title}"`, 'success');
+
+    // Calculate gamified in-game rewards based on reported issue
+    let xpAward = 150;
+    let coinsAward = 50;
+    let unlockedBadge = null;
+
+    if (newProblem.category === 'road') {
+      xpAward = 180;
+      coinsAward = 60;
+      unlockedBadge = { id: 'road_scout', name: 'Road Sentinel', icon: '🛣️', desc: 'Identified a road infrastructure issue' };
+    } else if (newProblem.category === 'water') {
+      xpAward = 200;
+      coinsAward = 75;
+      unlockedBadge = { id: 'water_scout', name: 'Hydro Sentinel', icon: '💧', desc: 'Flagged drinking water access gap' };
+    } else if (newProblem.category === 'drainage') {
+      xpAward = 160;
+      coinsAward = 55;
+      unlockedBadge = { id: 'drainage_scout', name: 'Drainage Warden', icon: '🌊', desc: 'Reported storm runoff deficit' };
+    } else {
+      xpAward = 130;
+      coinsAward = 45;
+      unlockedBadge = { id: 'village_hero', name: 'Civic Guardian', icon: '🌟', desc: 'Active contributor to village development' };
+    }
+
+    awardRewards({
+      xp: xpAward,
+      coins: coinsAward,
+      badge: unlockedBadge,
+      questTitle: newProblem.questTitle || null,
+      message: `Your issue "${newProblem.title}" is geotagged and forwarded to the Panchayat Planning Suite.`,
+    });
+
+    showToast(`Reported "${newProblem.title}" · Earned +${xpAward} XP & +${coinsAward} Coins!`, 'success');
   };
 
   const resolveProblem = (problemId) => {
@@ -281,7 +390,7 @@ export function VillageProvider({ children }) {
     setIsSimulating(true);
     try {
       const planName = customName || activePlanName || 'Custom Plan';
-      const scenario = await api.createScenario(planName, budgetLakh, selectedInterventions);
+      const scenario = await api.createScenario(planName, budgetLakh, selectedInterventions, planningObjective);
 
       setLatestSimulation(scenario);
       const updatedScenarios = await api.listScenarios();
@@ -309,7 +418,7 @@ export function VillageProvider({ children }) {
     setIsOptimizing(true);
     const targetBudget = customBudget !== null ? customBudget : budgetLakh;
     try {
-      const result = await api.optimize(targetBudget);
+      const result = await api.optimize(targetBudget, planningObjective);
       setOptimizerResult(result);
       if (result.simulation) {
         setLatestSimulation({
@@ -378,8 +487,7 @@ export function VillageProvider({ children }) {
     setIsThingsToFixOpen,
     isPlanningDrawerOpen,
     setIsPlanningDrawerOpen,
-    isSolarModalOpen,
-    setIsSolarModalOpen,
+
     pickLocationMode,
     setPickLocationMode,
     selectedMapPoint,
@@ -431,6 +539,11 @@ export function VillageProvider({ children }) {
     runSimulation,
     runOptimizer,
     resetScenarios,
+    // Resident Gamification Engine
+    playerProfile,
+    awardRewards,
+    activeRewardModal,
+    setActiveRewardModal,
   };
 
   return <VillageContext.Provider value={value}>{children}</VillageContext.Provider>;

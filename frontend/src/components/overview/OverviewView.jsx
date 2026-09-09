@@ -53,12 +53,12 @@ export function OverviewView() {
       <VillageMetaCard villageMeta={activeVillage} elevationProfile={elevationProfile} />
 
       {/* Baseline KPI & Score Row (if baseline metrics available) */}
-      {baselineMetrics && (
+      {baselineMetrics && baselineMetrics.composite_score !== undefined && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           {/* Composite Score Gauge */}
           <div className="lg:col-span-1">
             <ScoreGauge
-              score={baselineMetrics.composite_score}
+              score={baselineMetrics.composite_score ?? 0}
               label="Baseline Score"
               size={130}
             />
@@ -68,7 +68,7 @@ export function OverviewView() {
           <div className="lg:col-span-4 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
             <MetricCard
               label="School Accessibility"
-              value={baselineMetrics.school_accessibility_pct}
+              value={baselineMetrics.school_accessibility_pct ?? 0}
               unit="%"
               icon={GraduationCap}
               weight={baselineMetrics.score_weights?.school_access || 0.4}
@@ -78,7 +78,7 @@ export function OverviewView() {
 
             <MetricCard
               label="Clean Water Access"
-              value={baselineMetrics.water_access_pct}
+              value={baselineMetrics.water_access_pct ?? 0}
               unit="%"
               icon={Droplets}
               weight={baselineMetrics.score_weights?.water_access || 0.3}
@@ -88,7 +88,7 @@ export function OverviewView() {
 
             <MetricCard
               label="Drainage Coverage"
-              value={baselineMetrics.drainage_coverage_pct}
+              value={baselineMetrics.drainage_coverage_pct ?? 0}
               unit="%"
               icon={Waves}
               weight={baselineMetrics.score_weights?.drainage || 0.3}
@@ -98,7 +98,7 @@ export function OverviewView() {
 
             <MetricCard
               label="Avg School Travel Time"
-              value={baselineMetrics.avg_time_to_school_min}
+              value={baselineMetrics.avg_time_to_school_min ?? 0}
               unit=" min"
               icon={Clock}
               description="Mean network travel time across all 10 surveyed village households."
@@ -107,6 +107,7 @@ export function OverviewView() {
           </div>
         </div>
       )}
+
 
       {/* Main Digital Twin & Map Area with Deficit Summary */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

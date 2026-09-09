@@ -1,5 +1,4 @@
 import React from 'react';
-import { AuthProvider, useAuth } from './context/AuthContext';
 import { VillageProvider, useVillage } from './context/VillageContext';
 import { AppHeader } from './components/layout/AppHeader';
 import { MapViewport } from './components/exploration/MapViewport';
@@ -7,16 +6,12 @@ import { AddFeatureModal } from './components/community/AddFeatureModal';
 import { ReportProblemModal } from './components/community/ReportProblemModal';
 import { ThingsToFixDrawer } from './components/community/ThingsToFixDrawer';
 import { PlanningDrawer } from './components/planning/PlanningDrawer';
-import { SolarSDGModal } from './components/solar/SolarSDGModal';
-import { LoginModal } from './components/auth/LoginModal';
-import { UserProfileDrawer } from './components/auth/UserProfileDrawer';
 import { Toast } from './components/common/Toast';
 import { RoleSelector } from './components/onboarding/RoleSelector';
-import { VillagerHome } from './components/community/VillagerHome';
+import { RewardCelebrationModal } from './components/resident/RewardCelebrationModal';
 import { WifiOff, RefreshCw } from 'lucide-react';
 
 function AppContent() {
-  const { isLoginModalOpen, setIsLoginModalOpen, isProfileDrawerOpen, setIsProfileDrawerOpen } = useAuth();
   const {
     loading,
     error,
@@ -34,8 +29,8 @@ function AppContent() {
     setIsThingsToFixOpen,
     isPlanningDrawerOpen,
     setIsPlanningDrawerOpen,
-    isSolarModalOpen,
-    setIsSolarModalOpen,
+    activeRewardModal,
+    setActiveRewardModal,
   } = useVillage();
 
   if (loading) {
@@ -73,38 +68,19 @@ function AppContent() {
     );
   }
 
-  // First-ever visit: ask whether this is a villager or a planning official
-  // before showing either experience.
+  // First-ever visit: select starting mode
   if (!hasChosenRole) {
     return <RoleSelector />;
   }
 
-  // Villager Mode: a deliberately separate, much simpler screen — no map
-  // chrome, no technical jargon, no budget/simulation tools.
-  if (appMode === 'simple') {
-    return <VillagerHome />;
-  }
-
-  // Planning Official Mode: the full digital twin + planning suite.
   return (
     <div className="h-screen w-screen flex flex-col overflow-hidden bg-[#080c14] text-slate-100 font-sans">
       <AppHeader />
 
-      {/* Main Full-Viewport Google-Maps-Style Exploration */}
+      {/* Universal 3D Sandbox World & GIS Viewport for Both Modes */}
       <main className="flex-1 relative overflow-hidden">
         <MapViewport />
       </main>
-
-      {/* Authentication Modals & Drawers */}
-      <LoginModal
-        isOpen={isLoginModalOpen}
-        onClose={() => setIsLoginModalOpen(false)}
-      />
-
-      <UserProfileDrawer
-        isOpen={isProfileDrawerOpen}
-        onClose={() => setIsProfileDrawerOpen(false)}
-      />
 
       {/* Community Interaction Modals */}
       <AddFeatureModal
@@ -117,20 +93,22 @@ function AppContent() {
         onClose={() => setIsReportProblemOpen(false)}
       />
 
-      {/* Slide-out Drawers */}
+      {/* Citizen Requests Drawer (Things to Fix) */}
       <ThingsToFixDrawer
         isOpen={isThingsToFixOpen}
         onClose={() => setIsThingsToFixOpen(false)}
       />
 
+      {/* Planning Suite & AI Simulation Drawer */}
       <PlanningDrawer
         isOpen={isPlanningDrawerOpen}
         onClose={() => setIsPlanningDrawerOpen(false)}
       />
 
-      <SolarSDGModal
-        isOpen={isSolarModalOpen}
-        onClose={() => setIsSolarModalOpen(false)}
+      {/* Gamification Reward Celebration Modal */}
+      <RewardCelebrationModal
+        reward={activeRewardModal}
+        onClose={() => setActiveRewardModal(null)}
       />
 
       {/* Global Toast Notifications */}
@@ -141,10 +119,8 @@ function AppContent() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <VillageProvider>
-        <AppContent />
-      </VillageProvider>
-    </AuthProvider>
+    <VillageProvider>
+      <AppContent />
+    </VillageProvider>
   );
 }

@@ -13,7 +13,7 @@ Docs: http://localhost:8000/docs  (FastAPI gives you this for free — use
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 
 import village_data
 import simulation
@@ -34,42 +34,60 @@ app.add_middleware(
 class InterventionIn(BaseModel):
     type: str
     target: str
+    cost_lakh: Optional[float] = None
+    label: Optional[str] = None
 
 
 class ScenarioIn(BaseModel):
     name: str
     budget_lakh: float
     interventions: List[InterventionIn]
+    objective: str = "holistic"   # "holistic" | "school" | "water" | "drainage"
 
 
 class OptimizeIn(BaseModel):
     budget_lakh: float
+    objective: str = "holistic"   # "holistic" | "school" | "water" | "drainage"
+
+
+InterventionIn.model_rebuild()
+ScenarioIn.model_rebuild()
+OptimizeIn.model_rebuild()
 
 
 @app.get("/api/village")
-def get_village():
+def get_village(village_id: str = "PB-PAT-001"):
     """Step 1-2: village data the frontend needs to render the map + 3D twin."""
-    return village_data.village_geojson()
+    return village_data.village_geojson(village_id)
+
+
+@app.get("/api/villages")
+def list_villages():
+    """Returns list of registered cadastral villages in database."""
+    return [
+        {"id": v["id"], "name": v["name"], "district": v["district"], "state": v["state"], "center": v["center"]}
+        for v in village_data.VILLAGES_DB.values()
+    ]
 
 
 @app.get("/api/interventions/catalog")
-def get_catalog():
+def get_catalog(village_id: str = "PB-PAT-001"):
     """Everything the Planning Sandbox is allowed to place, with cost."""
-    return village_data.INTERVENTION_CATALOG
+    return village_data.get_catalog(village_id)
 
 
 @app.get("/api/metrics/baseline")
-def get_baseline_metrics():
+def get_baseline_metrics(objective: str = "holistic"):
     """Step 3: existing-conditions analysis, before any plan is applied."""
-    return simulation.baseline_metrics()
+    return simulation.baseline_metrics(objective=objective)
 
 
 @app.post("/api/scenarios")
 def create_scenario(scenario: ScenarioIn):
     """Steps 5-6: submit a plan, validate budget, simulate, store for comparison."""
-    interventions = [iv.dict() for iv in scenario.interventions]
+    interventions = [iv.model_dump() if hasattr(iv, "model_dump") else iv.dict() for iv in scenario.interventions]
     try:
-        result = simulation.run_simulation(interventions, scenario.budget_lakh)
+        result = simulation.run_simulation(interventions, scenario.budget_lakh, objective=scenario.objective)
     except InvalidIntervention as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -94,7 +112,7 @@ def get_scenario(scenario_id: int):
 @app.post("/api/optimize")
 def run_optimizer(payload: OptimizeIn):
     """Step 8: AI-assisted recommendation, explainable and rule-based."""
-    result = optimizer.optimize(payload.budget_lakh)
+    result = optimizer.optimize(payload.budget_lakh, objective=payload.objective)
     saved = store.add(
         f"AI Recommended ({payload.budget_lakh} lakh)",
         payload.budget_lakh,

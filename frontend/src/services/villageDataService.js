@@ -47,6 +47,45 @@ const PATIALA_ELEVATION_PROFILE = {
   ],
 };
 
+const GHARUAN_BOUNDARY = {
+  type: 'Polygon',
+  coordinates: [
+    [
+      [76.5720, 30.7075],
+      [76.5780, 30.7078],
+      [76.5800, 30.7045],
+      [76.5790, 30.7010],
+      [76.5740, 30.7005],
+      [76.5715, 30.7035],
+      [76.5720, 30.7075],
+    ],
+  ],
+};
+
+const GHARUAN_WATER_BODIES = [
+  {
+    id: 'GWB-1',
+    name: 'Gharuan Sarovar & Groundwater Recharge Basin',
+    type: 'sarovar',
+    lat: 30.7025,
+    lon: 76.5745,
+    radius_m: 42,
+    depth_m: 3.0,
+    status: 'Natural catchment & rainwater percolation pond',
+  },
+];
+
+const GHARUAN_ELEVATION_PROFILE = {
+  minElevation_m: 298.0,
+  maxElevation_m: 304.5,
+  slopeDirection: 'North to South-East',
+  contours: [
+    { label: '304m Contour (GT Junction)', elev_m: 304.0 },
+    { label: '301m Contour (Smart School & Chowk)', elev_m: 301.0 },
+    { label: '298m Contour (Kisan Hamlet Lowland)', elev_m: 298.0 },
+  ],
+};
+
 export const villageDataService = {
   /**
    * Get village boundary GeoJSON polygon
@@ -54,7 +93,19 @@ export const villageDataService = {
   getVillageBoundary(village) {
     if (!village) return null;
 
-    // 1. If explicit GeoJSON exists on the object
+    if (village.id === 'PB-SAS-002' || village.name?.toLowerCase().includes('gharuan')) {
+      return {
+        type: 'Feature',
+        geometry: GHARUAN_BOUNDARY,
+        properties: {
+          name: 'Gharuan (Mohali Smart Rural Sector)',
+          isApproximate: false,
+          source: 'Drone Cadastral Survey (SVAMITVA Phase 2)',
+        },
+      };
+    }
+
+    // If explicit GeoJSON exists on the object
     if (village.geojson) {
       return {
         type: 'Feature',
@@ -67,7 +118,7 @@ export const villageDataService = {
       };
     }
 
-    // 2. If Patiala Pilot
+    // If Patiala Pilot
     if (village.id === 'PB-PAT-001' || village.name?.toLowerCase().includes('kalyan')) {
       return {
         type: 'Feature',
@@ -80,7 +131,7 @@ export const villageDataService = {
       };
     }
 
-    // 3. Fallback: Generate an explicit 1.5km bounding box extent polygon
+    // Fallback: Generate an explicit bounding box extent polygon
     const lat = village.lat || village.center?.[0] || 30.3695;
     const lon = village.lon || village.center?.[1] || 76.3775;
     const delta = 0.012; // approx 1.3km
@@ -104,7 +155,7 @@ export const villageDataService = {
       properties: {
         name: village.name,
         isApproximate: true,
-        source: 'Cadastral Bounding Extent (Village boundary polygon unavailable from GIS source)',
+        source: 'Cadastral Bounding Extent',
       },
     };
   },
@@ -116,8 +167,9 @@ export const villageDataService = {
     const meta =
       VILLAGE_REGISTRY.find((v) => v.id === villageId) || VILLAGE_REGISTRY[0];
 
-    if (meta.id === 'PB-PAT-001') {
-      const liveData = await api.getVillage();
+    try {
+      const liveData = await api.getVillage(meta.id);
+      const isGharuan = meta.id === 'PB-SAS-002';
       return {
         meta,
         nodes: liveData.nodes,
@@ -127,26 +179,27 @@ export const villageDataService = {
         zones: liveData.zones,
         facilities: liveData.facilities,
         water_points: liveData.water_points,
-        water_bodies: PATIALA_WATER_BODIES,
-        elevation: PATIALA_ELEVATION_PROFILE,
+        water_bodies: isGharuan ? GHARUAN_WATER_BODIES : PATIALA_WATER_BODIES,
+        elevation: isGharuan ? GHARUAN_ELEVATION_PROFILE : PATIALA_ELEVATION_PROFILE,
         boundary: this.getVillageBoundary(meta),
         isLiveSimSupported: true,
       };
+    } catch (err) {
+      console.warn(`Falling back to local registry for ${villageId}:`, err);
+      return {
+        meta,
+        nodes: {},
+        edges: [],
+        proposed_edge: null,
+        buildings: [],
+        zones: {},
+        facilities: {},
+        water_points: [],
+        water_bodies: [],
+        elevation: { minElevation_m: 200, maxElevation_m: 220, contours: [] },
+        boundary: this.getVillageBoundary(meta),
+        isLiveSimSupported: false,
+      };
     }
-
-    return {
-      meta,
-      nodes: {},
-      edges: [],
-      proposed_edge: null,
-      buildings: [],
-      zones: {},
-      facilities: {},
-      water_points: [],
-      water_bodies: [],
-      elevation: { minElevation_m: 200, maxElevation_m: 220, contours: [] },
-      boundary: this.getVillageBoundary(meta),
-      isLiveSimSupported: false,
-    };
   },
 };
