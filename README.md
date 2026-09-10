@@ -48,8 +48,6 @@ gramverse/
 
 ```bash
 cd backend
-python3 -m venv venv
-source venv/bin/activate        # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 uvicorn main:app --reload --port 8000
 ```
@@ -65,7 +63,7 @@ Just open `frontend/index.html` directly in a browser, **or** serve it
 
 ```bash
 cd frontend
-python3 -m http.server 5500
+npm run dev
 ```
 
 Then visit `http://localhost:5500`. The page expects the backend at
